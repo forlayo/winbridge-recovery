@@ -1,6 +1,6 @@
-# WinBridge Recovery v4.0 Development
+# WinBridge Recovery v4.0.0
 
-## Access Guard alpha
+## Access Guard and atomic recovery
 
 This development branch now carries the first WinBridge 4.0 access-denied and file-lock hardening work, based on real-world `Move-Item` / `Access Denied` failures reported against the 3.1.1 repair flow.
 
@@ -46,10 +46,63 @@ If a company security product or file-system filter is the actual policy owner o
 - GitHub-side source review of the new wrapper integration and safety boundaries: PASS.
 - The original `Start-WinBridge-Recovery.ps1` source remains unchanged by the 4.0 runtime patch design.
 - Windows-only runtime execution of Restart Manager, `fltmc`, `manage-bde`, and the bounded `Move-Item` retry path has **not yet been executed in this Linux tool environment**. This development branch still requires a real Windows 10/11 + Windows PowerShell 5.1 test before the behavior should be treated as release-ready.
+## Reliability and diagnosis foundation
 
+This preview starts the WinBridge Recovery 4.0 line with a reliability-first foundation rather than a cosmetic version bump.
+
+### Unified preflight diagnosis
+
+- Added `WinBridge-4.0-Preflight.ps1`, a read-only preflight layer that writes a structured JSON report before normal diagnosis/repair.
+- Reports Windows build/architecture, Windows PowerShell version, long-path policy, launcher path length, free disk space, installed `OpenAI.Codex` AppX identity, bundled plugin versions, active marketplace versions, cache/`latest` state, Native Host state, pending recovery transactions, and running Chrome/Edge processes.
+- Produces a compact layer model for `host`, `package`, `marketplace`, `cache`, `native-host`, `recovery`, and `runtime`.
+- Records the first divergent recovery layer so a report can distinguish package-level problems from marketplace/cache/Native Host drift.
+- Windows 10 hosts are now identified explicitly. WinBridge can diagnose the host, while actual Codex Desktop availability still depends on whether the current official package is available and installed on that machine.
+- Preflight results are advisory; the existing repair core remains authoritative and still performs its own safety checks before any mutation.
+
+### Long-path and retention hardening
+
+- Reworked launcher maintenance cleanup to use extended-length `\\?\` paths and .NET file/directory APIs instead of relying on `Remove-Item -Recurse` for deeply nested resource mirrors.
+- Resource-mirror cleanup failures caused by a lock or access denial are now reported as deferred cleanup rather than automatically converting an otherwise successful repair into a total launcher failure.
+- Log cleanup receives the same long-path-safe treatment and reports deferred files separately.
+- Preflight reports are included in normal log-retention grouping.
+
+### 4.0 build/version pipeline
+
+- The launcher build now creates temporary version-stamped compiler sources and builds the 4.0 preview without permanently rewriting the large checked-in C# implementation files.
+- Main launcher assembly/file version is stamped as `4.0.0.0`; preview-facing text uses `4.0.0-preview.1`.
+- The updater keeps the parseable numeric comparison version `4.0.0` while using the preview identifier in its user agent/build output.
+- Installer and uninstaller assembly versions are stamped as `4.0.0.0` at build time.
+- Installer registration and install-manifest metadata use `4.0.0-preview.1`.
+- The 4.0 preflight helper is included in the installer payload.
+
+## Preview limitations / remaining 4.0 work
+
+- This is the 4.0 foundation branch, not a final 4.0 release.
+- The main recovery core still contains the mature v3.1.1 repair implementation; later 4.0 work will move additional reliability logic into that core after Windows regression testing.
+- Precise file-lock ownership (owning PID/executable/command line), a full per-plugin hash/path/version matrix, targeted repair planning, and official-first Native Host reconciliation remain open roadmap work.
+- A resource-mirror staging failure inside the atomic installation phase can still require separate root-cause handling; this preview specifically hardens diagnosis and post-run/retention cleanup first.
+- Windows 10 detection does not promise that an upstream official Codex Desktop package exists for every Windows 10 build.
+
+## Validation required before merge/release
+
+- Build the launcher, installer, and uninstaller on a clean Windows PowerShell 5.1 environment.
+- Run `SELF-TEST.cmd` and `DIAGNOSE-ONLY.cmd` on Windows 11.
+- Run the new preflight on at least one Windows 10 host and confirm it reports host/package availability accurately without claiming unsupported upstream compatibility.
+- Reproduce a deeply nested obsolete resource mirror and verify maintenance cleanup succeeds beyond legacy path limits.
+- Repeat the locked-mirror case and confirm the run reports deferred cleanup without deleting the active mirror or weakening rollback guarantees.
 ---
 
 # WinBridge Recovery v3.1.1
+
+## Scope clarification — 2026-08-15
+
+- Clarified that WinBridge Recovery repairs plugin/runtime infrastructure state; it is not a Computer Use, Browser, or Agent task-checkpoint system.
+- WinBridge does not restore the last clicked/viewed page, reconstruct click/action or screenshot trails, recover unsaved editor state, identify the exact files changed by a previous Agent task, or resume the original task from the exact interrupted step.
+- WinBridge does not read, reconstruct, replay, or write back hidden model context, Agent plans, internal Computer Use/CUA run state, or an internal execution cursor.
+- A background screen/activity/key recorder is intentionally not being added as a partial substitute because it cannot guarantee exact task resumption and would materially expand privacy, permission, security, storage, and maintenance scope.
+- Task/session checkpoint recovery is therefore explicitly outside the current roadmap unless a stable, supported interface becomes available that permits reliable recovery without weakening the project's privacy and safety model.
+- This is a documentation/scope clarification only; the v3.1.1 repair core and distributed binaries are unchanged.
+- See `SCOPE-AND-LIMITATIONS.md` for the complete policy.
 
 ## Maintenance update
 
