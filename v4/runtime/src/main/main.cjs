@@ -16,6 +16,8 @@ const { assertTrustedIpcSender, isInside } = require('./ipc-policy.cjs');
 const { SocialNetworkBroker } = require('./social-network-broker.cjs');
 const { installProductionCsp } = require('./csp-policy.cjs');
 
+const REPAIR_REQUEST_TIMEOUT_MS = 30 * 60 * 1000;
+
 const appRoot = path.resolve(__dirname, '..', '..');
 let mainWindow = null;
 let manager = null;
@@ -58,7 +60,7 @@ function registerIpc() {
   registerHandler(IPC.REFRESH_SYSTEM_PROFILE, () => manager.request('system.refresh'));
   registerHandler(IPC.RUN_DIAGNOSIS, () => manager.request('diagnosis.run'));
   registerHandler(IPC.GET_DIAGNOSIS_REPORT, () => manager.request('diagnosis.get'));
-  registerHandler(IPC.START_REPAIR, (reportId) => manager.request('repair.start', validateReportId(reportId)), 1);
+  registerHandler(IPC.START_REPAIR, (reportId) => manager.request('repair.start', validateReportId(reportId), REPAIR_REQUEST_TIMEOUT_MS), 1);
   registerHandler(IPC.CANCEL_OPERATION, () => manager.request('operation.cancel'));
   registerHandler(IPC.OPEN_LOGS, async () => {
     const result = await manager.request('logs.path');

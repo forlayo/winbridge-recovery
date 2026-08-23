@@ -2,8 +2,25 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const { mapBounded } = require('../src/worker/read-only-pool.cjs');
 const { BoundedLogBuffer } = require('../src/worker/log-buffer.cjs');
+
+const projectRoot = path.resolve(__dirname, '..');
+
+test('real repair has a dedicated long-running request timeout', () => {
+  const source = fs.readFileSync(path.join(projectRoot, 'src', 'main', 'main.cjs'), 'utf8');
+  assert.match(source, /const REPAIR_REQUEST_TIMEOUT_MS = 30 \* 60 \* 1000;/);
+  assert.match(source, /manager\.request\('repair\.start', validateReportId\(reportId\), REPAIR_REQUEST_TIMEOUT_MS\)/);
+});
+
+test('opening GPT cancels the owned repair tree first', () => {
+  const workerSource = fs.readFileSync(path.join(projectRoot, 'src', 'worker', 'engine-worker.cjs'), 'utf8');
+  const adapterSource = fs.readFileSync(path.join(projectRoot, 'src', 'worker', 'engine-adapter.cjs'), 'utf8');
+  assert.match(workerSource, /case 'gpt\.open':[\s\S]*adapter\.cancel\(\)[\s\S]*openInstalledGPT/);
+  assert.match(adapterSource, /spawnSync\('taskkill\.exe', \['\/PID', String\(child\.pid\), '\/T', '\/F'\]/);
+});
 
 test('read-only pool respects its concurrency cap and preserves result order', async () => {
   let active = 0;

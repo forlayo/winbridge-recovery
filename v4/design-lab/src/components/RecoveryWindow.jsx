@@ -204,6 +204,20 @@ const repairEligibilityLabels = {
   "runtime-unavailable": "运行时桥接不可用",
 };
 
+function localizeRepairError(message) {
+  const raw = String(message || "");
+  if (/Worker request timed out:\s*repair\.start/i.test(raw)) {
+    return "修复仍可能在后台运行，但界面等待时间已超过限制。请勿重复修复，并查看实时终端确认进度。";
+  }
+  if (/Runtime worker (?:is unavailable|exited)/i.test(raw)) {
+    return "修复后台进程已断开。请查看实时终端中的英文错误详情。";
+  }
+  if (/Runtime shutdown is in progress/i.test(raw)) {
+    return "启动器正在关闭，当前无法继续修复。";
+  }
+  return "修复未能完成。请查看实时终端中的英文错误详情。";
+}
+
 function DiagnosisBrief({ flowState, report, runtimeMode }) {
   const summary = issueSummary(report);
   const reportTitle = summary.first ? `${summary.first.category} · 已生成结构化证据` : runtimeMode ? "等待本机只读诊断" : "WB-CHR-011 · Chrome 桥接偏差";
@@ -860,7 +874,7 @@ export default function RecoveryWindow({ scheme, onSchemeChange, mix, setMix, se
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      setRuntimeError(message);
+      setRuntimeError(localizeRepairError(message));
       appendRuntimeMessage("error", "repair", message);
       setFlowState("AwaitingDecision");
       setOperationBusy(false);

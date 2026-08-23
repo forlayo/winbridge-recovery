@@ -3,7 +3,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { spawn } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 const { makeId, validateDiagnosticReport } = require('../shared/contracts.cjs');
 const { mapBounded } = require('./read-only-pool.cjs');
 const { classifyEvidence } = require('./diagnostic-policy.cjs');
@@ -180,7 +180,6 @@ class EngineAdapter {
   cancel() {
     if (!this.active) return false;
     this.active.controller.abort(new Error('Operation cancelled'));
-    if (this.active.child && !this.active.child.killed) this.active.child.kill();
     return true;
   }
 
@@ -209,7 +208,20 @@ class EngineAdapter {
       };
       child.stdout.on('data', consume(stdout, 'info'));
       child.stderr.on('data', consume(stderr, 'warn'));
-      const abort = () => child.kill();
+      const abort = () => {
+        if (!child.pid || child.exitCode !== null) return;
+        if (process.platform === 'win32') {
+          const result = spawnSync('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], {
+            windowsHide: true,
+            stdio: 'ignore',
+            shell: false,
+            timeout: 15000
+          });
+          if (result.error && child.exitCode === null) child.kill();
+          return;
+        }
+        child.kill();
+      };
       signal.addEventListener('abort', abort, { once: true });
       child.once('error', (error) => {
         if (settled) return;

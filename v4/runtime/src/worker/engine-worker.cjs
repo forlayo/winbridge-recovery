@@ -159,6 +159,9 @@ async function dispatch(command, payload) {
       await fs.mkdir(path.dirname(logFile), { recursive: true });
       return { path: path.dirname(logFile) };
     case 'gpt.open':
+      if (adapter.cancel()) {
+        writeLog({ level: 'warn', category: 'lifecycle', message: 'Active WinBridge repair processes were terminated before opening GPT.' });
+      }
       return openInstalledGPT({ registerChild, unregisterChild });
     case 'plugins.assets':
       return getPluginAssets();
