@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Latest Release / 最新正式版
+    url: https://github.com/zemeng5208/winbridge-recovery/releases/latest
+    about: Download the current 4.0.0 installer or portable ZIP and verify its SHA-256 sidecar. / 下载当前 4.0.0 安装器或便携 ZIP，并核对 SHA-256 sidecar。
   - name: Project blog and comments / 项目博客与评论
     url: https://zemeng5208-blog.nydiaruby20101986rvz.chatgpt.site
     about: Read development notes or leave a lighter-weight comment before opening a formal issue. / 查看开发日志，或先在博客评论区留下简短反馈。

@@ -4,6 +4,8 @@
 
 WinBridge Recovery detects and repairs bundled marketplace, plugin cache, `latest` pointer, runtime path, and registration drift after Desktop updates or restarts. It uses only the official package already installed on the target computer.
 
+> Current formal release: **[WinBridge Recovery 4.0.0 (Latest Release)](https://github.com/zemeng5208/winbridge-recovery/releases/tag/v4.0.0)**. The release provides Windows x64 installer and portable ZIP assets. The public installer is currently unsigned, so Windows SmartScreen may show its normal warning; always verify the SHA-256 sidecar from the Release page.
+
 > Independent, non-commercial student project. Not affiliated with, sponsored by, or endorsed by OpenAI. Third-party names are used only to identify compatibility. No third-party logos or official application/plugin files are redistributed.
 
 ## Explicitly not supported: task/session checkpoint recovery
@@ -58,11 +60,17 @@ The predecessor repository is intentionally preserved rather than merged or rewr
 - Repair only when static state is inconsistent.
 - Long-path-safe backup manifests for deeply nested plugin dependencies.
 - User-selectable retention of one, two, or three verified recovery backups; backups are preserved by default during uninstall.
-- Six interface languages: Arabic, Chinese, English, French, Russian, and Spanish. The first run follows the Windows UI language.
 - Optional public activity view for Tibo, OpenAI, and ChatGPT. It is hidden when its public sources cannot be reached and never attempts to bypass network restrictions.
-- Snake and Minesweeper mini games, plus classic-black and glass appearance themes.
-- In-app update download, SHA-256 verification, and installer launch. A configurable mirror prefix may be used before the official GitHub fallback.
+- Layout, material, color, and accessibility-fallback controls, plus Snake and Minesweeper mini games.
+- 4.0.0 ordinary packaged demonstration launches without `--enable-real-repair`; real repair remains behind the current-report and explicit-user-action gates.
 - Post-launch consistency checks, diagnostics, rollback, and self-test.
+
+### 4.0.0 verified UI and social-feed behavior
+
+- All five runtime layouts keep their panels inside the scrollable window at narrow and normal desktop sizes; stage, terminal, progress, and plugin cards do not cover one another.
+- Social-feed entries strip frontend markup, expose source labels and translation controls, and preserve unknown timestamps as `Time unavailable`.
+- Official X profile avatars are fetched only through the controlled main-process route and stored in a bounded application-owned cache. Browser cookies are not imported and official plugin files are not redistributed.
+- A read-only preflight/diagnosis report must be current and valid before the explicit repair gate can be reached.
 
 ## Safety boundaries
 
@@ -77,33 +85,31 @@ The predecessor repository is intentionally preserved rather than merged or rewr
 
 ### Installer
 
-Download `WinBridge-Recovery-Setup.exe` from the latest GitHub Release. The installer lets you choose the application and backup locations, creates the desktop shortcut, and registers the included uninstaller.
+- [Download the Windows x64 installer](https://github.com/zemeng5208/winbridge-recovery/releases/download/v4.0.0/WinBridge-Recovery-Setup-v4.0.0.exe)
+- [Download the installer SHA-256 sidecar](https://github.com/zemeng5208/winbridge-recovery/releases/download/v4.0.0/WinBridge-Recovery-Setup-v4.0.0.exe.sha256)
+
+The installer creates a separate `WinBridge-Recovery-V4` installation, desktop shortcut, and per-user uninstall registration; it does not overwrite the legacy 3.x installation. The installer is unsigned. Verify `8D49B10F0ADB0E01F21A1D8B0B03D477AA58F3466B08BFD964A21F13B18ECF77` before running it.
 
 ### Portable ZIP
 
-Download `WinBridge-Recovery-v3.1.1-portable.zip`, extract the complete `WinBridge-Recovery` folder to a normal user-writable location, and run:
+- [Download the Windows x64 portable ZIP](https://github.com/zemeng5208/winbridge-recovery/releases/download/v4.0.0/WinBridge-Recovery-v4.0.0-portable-win-x64.zip)
+- [Download the portable ZIP SHA-256 sidecar](https://github.com/zemeng5208/winbridge-recovery/releases/download/v4.0.0/WinBridge-Recovery-v4.0.0-portable-win-x64.zip.sha256)
+
+Extract the complete `WinBridge-Recovery-V4-win32-x64` folder to a normal user-writable location, and run:
 
 ```text
-WinBridge-Recovery\LauncherUI\WinBridgeRecovery.exe
+WinBridge-Recovery-V4-win32-x64\WinBridge-Recovery-V4.exe
 ```
 
-The portable package does not install a service, create an uninstall entry, or bundle any official Desktop/plugin files. Keep the extracted folder together; do not run individual scripts directly from inside the ZIP. On first use it detects the current Windows and locally installed official Desktop package. Recovery content is generated only from that package.
+The portable package does not install a service, create an uninstall entry, or bundle any official Desktop/plugin files. Keep the extracted folder together; do not run individual scripts directly from inside the ZIP. Ordinary packaged demonstration launch does not start real repair.
 
-Before either method, compare the downloaded file's SHA-256 with the value shown in the Release notes. The included signature is a self-signed testing certificate and is not publicly trusted.
+Before either method, compare the downloaded file's SHA-256 with the value shown in the Release page. Do not treat an unsigned installer or a SmartScreen warning as a successful signature check.
 
 ## Updates and public activity
 
-The settings window can check the latest GitHub release and download the installer inside the application. The update helper waits for the launcher to exit, then opens the installer in update mode so the existing application and backup locations can be reused. The downloaded installer is rejected unless its SHA-256 matches the release digest or companion `.sha256` asset.
+The public update entry point is the [GitHub Latest Release](https://github.com/zemeng5208/winbridge-recovery/releases/latest). Re-check the installer or portable ZIP sidecar after each download; do not treat Preview 1 or an old 3.x asset as the current release.
 
-For networks where GitHub release downloads are slow, an administrator may create `Config\update.ini` beside the installed launcher:
-
-```ini
-mirror_prefix=https://example.invalid/
-```
-
-The mirror must proxy the original release URL. It is tried first and the official URL remains the fallback. This option does not weaken verification and does not guarantee that any particular regional network can reach GitHub metadata.
-
-The public activity view is opt-in after a successful connectivity probe. If all configured public RSS/reader sources are unavailable, the setting and entry are hidden. Cached posts may still be shown when available. Translation follows the selected interface language and currently targets the six UN official languages.
+The public activity view is read-only after a successful connectivity probe. If all fixed public sources are unavailable, the setting and entry are hidden. Entries strip frontend markup, expose source labels and translation controls, preserve unknown timestamps as `Time unavailable`, and use a bounded application-owned cache for official X profile avatars.
 
 ## Verification meaning
 
@@ -113,10 +119,21 @@ A successful repair or validation means the plugin/runtime surface is usable aga
 
 ## Build
 
+The default `main` branch preserves the older script history. The formal 4.0.0 source tree is available at tag `v4.0.0` and branch `v4-integration-first-release`; check out that tree before running the build:
+
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Installer\Build-Installer.ps1 -OutputPath .\WinBridge-Recovery-Setup.exe
+git checkout v4.0.0
+cd .\v4\design-lab
+npm ci
+npm run build
+cd ..\runtime
+npm ci
+npm run sync:frontend
+npm test
+npm run verify:snapshot
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Build-Release.ps1
 ```
 
-The optional self-signed test certificate is not publicly trusted. Verify the SHA-256 published with each release.
+The public installer is currently unsigned. Verify the SHA-256 published with each release.
 
 See [SCOPE-AND-LIMITATIONS.md](SCOPE-AND-LIMITATIONS.md), [README.md](README.md), [LEGAL-NOTICE.md](LEGAL-NOTICE.md), and [SECURITY.md](SECURITY.md).

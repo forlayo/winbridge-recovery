@@ -4,6 +4,8 @@
 
 它用于检查和恢复 Browser、Chrome 与 Computer Use 三个桌面插件在更新或重启后出现的 marketplace、缓存、`latest` 指针、运行时路径和注册状态不一致问题。
 
+> 当前正式版：**[WinBridge Recovery 4.0.0（Latest Release）](https://github.com/zemeng5208/winbridge-recovery/releases/tag/v4.0.0)**。正式版提供 Windows x64 安装器和便携 ZIP；安装器当前未签名，Windows SmartScreen 可能显示未签名程序的常规警告。请始终使用 Release 页面上的 SHA-256 sidecar 校验下载文件。
+
 > 本项目是学生独立开发的非商业社区测试项目，与 OpenAI 无隶属、赞助或认可关系。第三方名称仅用于说明兼容对象；项目不包含第三方品牌图标，也不重新分发官方应用或插件文件。
 
 ## 明确不支持：会话与任务断点恢复
@@ -59,11 +61,19 @@ WinBridge Recovery 是早期公开脚本项目 **[Codex Desktop Plugin Repair Sa
 - 对深层插件依赖使用长路径安全的备份清单与校验逻辑。
 - 可由用户选择保留一、二或三份通过校验的恢复备份，普通卸载默认不删除备份。
 - 启动 Desktop 后进行两次连续静态一致性检查。
-- 首次运行跟随 Windows 界面语言，支持中文、英文、法文、西班牙文、俄文和阿拉伯文六种联合国官方语言。
-- 可选显示 Tibo、OpenAI 与 ChatGPT 的公开动态；公共数据源不可达时自动隐藏，不尝试绕过网络限制。
-- 提供经典黑与毛玻璃主题，以及贪吃蛇和扫雷小游戏。
-- 在应用内检查版本、下载并校验安装程序，随后以更新模式运行安装器。
+- 提供布局、材质、颜色和无障碍回退控制，以及贪吃蛇和扫雷小游戏。
+- 可选显示固定公开来源的社交动态；公共数据源不可达时自动隐藏，不尝试绕过网络限制。
+- 4.0.0 普通演示启动默认关闭真实修复能力，真实修复仍受只读诊断报告和明确用户动作双重门禁约束。
 - 提供诊断、回滚和自检。
+
+### 4.0.0 正式版已验证的界面与动态功能
+
+- 五种运行布局在窄窗口和普通桌面尺寸下都保持在可滚动窗口内；阶段、终端、进度和插件卡片不会互相遮挡。
+- 社交动态入口只读展示固定来源，清理前端标记，显示来源标签并提供翻译控件。
+- 无法确认的时间显示为 `Time unavailable`，不会用旧数据回填当前窗口。
+- 官方 X 头像只通过受控来源读取，并存放在应用自己的有界本地缓存中；不会读取浏览器 Cookie，也不会把头像或官方插件文件重新分发。
+- 普通演示启动默认不带 `--enable-real-repair`，可用于查看界面而不会启动真实修复。
+- 诊断先行：只读预检/诊断报告必须是当前运行生成的有效报告，且用户必须明确选择后，才可能进入真实修复门禁。
 
 ## 安全边界
 
@@ -76,35 +86,33 @@ WinBridge Recovery 是早期公开脚本项目 **[Codex Desktop Plugin Repair Sa
 
 ## 安装与使用
 
-运行 Release 中的 `WinBridge-Recovery-Setup.exe`，选择程序目录。D 盘可用时，备份默认位于 `D:\CodexPluginRepairBackups`；否则使用当前用户的本地应用数据目录。
+### 4.0.0 Windows x64 安装器
 
-安装后双击桌面上的 **WinBridge Recovery**。启动器会提醒并关闭 Chrome/Edge，完成检查、必要修复、Desktop 启动及后检查。完成后再打开 Chrome 验证扩展连接。
+- [下载安装器](https://github.com/zemeng5208/winbridge-recovery/releases/download/v4.0.0/WinBridge-Recovery-Setup-v4.0.0.exe)
+- [安装器 SHA-256 sidecar](https://github.com/zemeng5208/winbridge-recovery/releases/download/v4.0.0/WinBridge-Recovery-Setup-v4.0.0.exe.sha256)
+
+安装器会创建独立的 `WinBridge-Recovery-V4` 安装、桌面快捷方式和当前用户卸载注册，不覆盖旧的 3.x 安装。正式安装器目前未签名，SmartScreen 警告是预期现象；运行前请核对 `8D49B10F0ADB0E01F21A1D8B0B03D477AA58F3466B08BFD964A21F13B18ECF77`。
 
 ### 免安装便携 ZIP
 
-也可以从最新 GitHub Release 下载 `WinBridge-Recovery-v3.1.1-portable.zip`。将其中完整的 `WinBridge-Recovery` 文件夹解压到普通、可写的用户目录，然后运行：
+- [下载便携 ZIP](https://github.com/zemeng5208/winbridge-recovery/releases/download/v4.0.0/WinBridge-Recovery-v4.0.0-portable-win-x64.zip)
+- [便携 ZIP SHA-256 sidecar](https://github.com/zemeng5208/winbridge-recovery/releases/download/v4.0.0/WinBridge-Recovery-v4.0.0-portable-win-x64.zip.sha256)
+
+将完整的 `WinBridge-Recovery-V4-win32-x64` 文件夹解压到普通、可写的用户目录，然后运行：
 
 ```text
-WinBridge-Recovery\LauncherUI\WinBridgeRecovery.exe
+WinBridge-Recovery-V4-win32-x64\WinBridge-Recovery-V4.exe
 ```
 
-便携包不会安装系统服务、创建卸载注册项，也不包含官方 Desktop 或插件文件。请保持解压后的目录结构完整，不要直接在 ZIP 内运行脚本。首次启动会检测当前 Windows 环境和本机已安装的官方 Desktop 包，修复资源只从目标电脑的当前官方包生成。
+便携包不会安装系统服务或创建卸载注册项，也不包含官方 Desktop 或插件文件。请保持解压后的目录结构完整，不要直接在 ZIP 内运行脚本。首次启动会先显示只读诊断/预检界面；普通演示启动默认不会执行真实修复。
 
-无论使用安装器还是便携 ZIP，运行前都应核对 Release Notes 中公布的 SHA-256。项目使用的是自签测试证书，并非 Windows 公开信任的商业签名。
+无论使用安装器还是便携 ZIP，运行前都应核对 Release 页面公布的 SHA-256。正式版安装器未签名，不要把 SmartScreen 警告当成签名通过的证据。
 
-## 应用内更新与公开动态
+## 更新与公开动态
 
-设置页可以直接检查最新 GitHub Release，并在应用内下载安装器。更新辅助程序会等待启动器退出，再以更新模式启动安装器，从而优先沿用原有程序目录与备份目录。若安装器 SHA-256 与 Release 的 digest 或配套 `.sha256` 文件不一致，更新会立即停止。
+4.0.0 的公开更新入口是 [GitHub Latest Release](https://github.com/zemeng5208/winbridge-recovery/releases/latest)。下载新版本后，请重新核对安装器或便携 ZIP 的 SHA-256；不要把旧 3.x 安装器或 Preview 1 资产当作当前版本。
 
-网络访问 GitHub Release 较慢时，可以在安装目录下创建 `Config\update.ini`：
-
-```ini
-mirror_prefix=https://example.invalid/
-```
-
-镜像地址必须代理原始 Release 下载地址。程序会先尝试镜像，再回退到官方地址；无论从哪里下载都必须通过同一 SHA-256 校验。这个设置不会绕过网络限制，也不能承诺任意国内网络一定可访问 GitHub 元数据。
-
-公开动态功能会先实际探测 RSS/reader 数据源，而不是根据 IP 或国家猜测。数据源全部不可达时，设置项和入口会自动隐藏；存在有效缓存时可显示缓存。翻译目标跟随界面语言，目前覆盖六种联合国官方语言。
+公开动态功能会先实际探测固定的公开来源，而不是根据 IP 或国家猜测。条目会清理前端标记、显示来源标签；时间缺失或无法确认时显示 `Time unavailable`，不会用旧条目回填当前时间窗。官方 X 头像通过受控主进程来源读取，并限制在应用自己的有界缓存内。数据源全部不可达时，设置项和入口会自动隐藏；翻译目标跟随界面语言。
 
 ## 验证标准
 
@@ -120,13 +128,22 @@ mirror_prefix=https://example.invalid/
 
 ## 从源码构建
 
-需要 Windows 11、Windows PowerShell 5.1 和系统自带 .NET Framework CodeDOM：
+需要 Windows PowerShell 5.1、Node/npm 和正式版锁定的 Electron 工具链。默认 `main` 保留旧版脚本历史；正式 4.0.0 源码位于 `v4.0.0` 标签和 `v4-integration-first-release` 分支。先切换到该源码树，再运行完整打包流程：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Installer\Build-Installer.ps1 -OutputPath .\WinBridge-Recovery-Setup.exe
+git checkout v4.0.0
+cd .\v4\design-lab
+npm ci
+npm run build
+cd ..\runtime
+npm ci
+npm run sync:frontend
+npm test
+npm run verify:snapshot
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Build-Release.ps1
 ```
 
-测试证书不是公开受信任的商业签名。运行前请核对 Release 页面公布的 SHA-256。
+构建输出应通过脚本中的前端、测试和打包校验；公开安装器当前未签名，运行前仍必须核对 Release 页面公布的 SHA-256。
 
 ## 卸载
 

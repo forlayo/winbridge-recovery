@@ -1,3 +1,32 @@
+# WinBridge Recovery 4.0.0 — formal Windows x64 release
+
+Release: https://github.com/zemeng5208/winbridge-recovery/releases/tag/v4.0.0
+Status: Latest Release (not a preview)
+
+## Download and verify
+
+- [Windows x64 installer](https://github.com/zemeng5208/winbridge-recovery/releases/download/v4.0.0/WinBridge-Recovery-Setup-v4.0.0.exe)
+- [Installer SHA-256 sidecar](https://github.com/zemeng5208/winbridge-recovery/releases/download/v4.0.0/WinBridge-Recovery-Setup-v4.0.0.exe.sha256)
+- Installer SHA-256: `8D49B10F0ADB0E01F21A1D8B0B03D477AA58F3466B08BFD964A21F13B18ECF77`
+- [Windows x64 portable ZIP](https://github.com/zemeng5208/winbridge-recovery/releases/download/v4.0.0/WinBridge-Recovery-v4.0.0-portable-win-x64.zip)
+- [Portable ZIP SHA-256 sidecar](https://github.com/zemeng5208/winbridge-recovery/releases/download/v4.0.0/WinBridge-Recovery-v4.0.0-portable-win-x64.zip.sha256)
+- Portable ZIP SHA-256: `D0EFB50EB104306AA00185668255D0B44BFECE430C4B02699827DE1E7B46B601`
+
+The public installer is currently unsigned; Windows SmartScreen may show the normal warning. Verify the sidecar before running it. The installer uses a separate `WinBridge-Recovery-V4` installation, desktop shortcut, and per-user uninstall registration, and does not overwrite legacy 3.x.
+
+## Verified 4.0.0 behavior
+
+- The ordinary packaged demonstration does not include `--enable-real-repair`; it is intended for interface inspection without starting real repair.
+- A current read-only preflight/diagnosis report and explicit user action are required before a packaged real-repair request can pass its separate gates.
+- Five runtime layouts keep stage, terminal, progress, and plugin cards inside a scrollable window without overlap.
+- Social entries strip frontend markup, expose source labels and translation controls, preserve unknown timestamps as `Time unavailable`, and use a bounded application-owned cache for official X avatars.
+- Validation recorded 83 automated tests passing, Design Lab build/frontend sync/packaging checks passing, Electron 43.4.0 Windows x64 packaging, version `4.0.0`, and a clean five-second packaged smoke test.
+- This release does not claim a complete fresh Windows 10/11 + Windows PowerShell 5.1 repair regression matrix; see [issue #13](https://github.com/zemeng5208/winbridge-recovery/issues/13).
+
+---
+
+# Historical release notes
+
 # WinBridge Recovery v3.1.1
 
 ## Scope clarification — 2026-08-15

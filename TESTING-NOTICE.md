@@ -5,11 +5,23 @@ Project homepage: https://github.com/zemeng5208/winbridge-recovery
 This is an independent, non-commercial student project. It is not affiliated
 with, sponsored by, or endorsed by OpenAI.
 
-This build is currently in the testing stage. Anyone who receives an
-authorized copy may test it and perform secondary development.
+The current public build is the formal **WinBridge Recovery 4.0.0** Windows x64
+release. The [Latest Release](https://github.com/zemeng5208/winbridge-recovery/releases/tag/v4.0.0)
+contains the installer, portable ZIP, and SHA-256 sidecars. The installer is
+currently unsigned; Windows SmartScreen may show the normal warning for an
+unsigned first-party build.
 
 Testing of WinBridge Recovery covers plugin/runtime recovery, diagnostics,
-backup/rollback, launcher behavior, packaging, and related compatibility.
+backup/rollback, launcher behavior, packaging, and related compatibility. The
+formal release records automated/build checks and a clean packaged smoke test;
+it does not claim a complete fresh Windows 10/11 + Windows PowerShell 5.1
+repair matrix. That follow-up is tracked in
+[#13](https://github.com/zemeng5208/winbridge-recovery/issues/13).
+
+The ordinary packaged demonstration starts without `--enable-real-repair` and
+is intended for interface inspection without starting a real repair. A current
+read-only preflight/diagnosis report and an explicit user action are required
+before a packaged real-repair request can pass its separate gates.
 A successful repair means the relevant plugin/runtime surface can be validated
 again. It does not mean that an interrupted Computer Use or Browser task,
 last page, click/action trail, changed-file history, hidden model context,
@@ -21,8 +33,9 @@ or broad work-activity capture as a partial substitute for unsupported internal
 task-state recovery. See `SCOPE-AND-LIMITATIONS.md` for the complete boundary.
 
 This notice does not transfer ownership of third-party software, trademarks,
-or assets. A self-signed testing certificate is not a publicly trusted
-commercial code-signing certificate.
+or assets. The public 4.0.0 installer is unsigned; verify its SHA-256 sidecar
+before running it rather than treating SmartScreen status as a signature check.
 
-The testing signature identifies this project build. It is not an official
-OpenAI signature.
+Any historical/testing certificate identifies project metadata only. It is not
+an official OpenAI signature and does not make the public 4.0.0 installer
+trusted.
