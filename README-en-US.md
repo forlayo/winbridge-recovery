@@ -4,7 +4,7 @@
 
 WinBridge Recovery detects and repairs bundled marketplace, plugin cache, `latest` pointer, runtime path, and registration drift after Desktop updates or restarts. It uses only the official package already installed on the target computer.
 
-> Current formal release: **[WinBridge Recovery 4.0.0 (Latest Release)](https://github.com/zemeng5208/winbridge-recovery/releases/tag/v4.0.0)**. The release provides Windows x64 installer and portable ZIP assets. The public installer is currently unsigned, so Windows SmartScreen may show its normal warning; always verify the SHA-256 sidecar from the Release page.
+> Current formal release: **[WinBridge Recovery 4.0.0 (Latest Release)](https://github.com/zemeng5208/winbridge-recovery/releases/tag/v4.0.0)**. The release provides Windows x64 installer and portable ZIP assets. The installer and portable app use the same self-signed test certificate as 3.1.1; it is not rooted in the public Windows trust store, so SmartScreen may still show an unknown-publisher warning. Always verify the SHA-256 sidecar from the Release page.
 
 > Independent, non-commercial student project. Not affiliated with, sponsored by, or endorsed by OpenAI. Third-party names are used only to identify compatibility. No third-party logos or official application/plugin files are redistributed.
 
@@ -88,7 +88,7 @@ The predecessor repository is intentionally preserved rather than merged or rewr
 - [Download the Windows x64 installer](https://github.com/zemeng5208/winbridge-recovery/releases/download/v4.0.0/WinBridge-Recovery-Setup-v4.0.0.exe)
 - [Download the installer SHA-256 sidecar](https://github.com/zemeng5208/winbridge-recovery/releases/download/v4.0.0/WinBridge-Recovery-Setup-v4.0.0.exe.sha256)
 
-The installer creates a separate `WinBridge-Recovery-V4` installation, desktop shortcut, and per-user uninstall registration; it does not overwrite the legacy 3.x installation. The installer is unsigned. Verify `8D49B10F0ADB0E01F21A1D8B0B03D477AA58F3466B08BFD964A21F13B18ECF77` before running it.
+The installer creates a separate `WinBridge-Recovery-V4` installation, desktop shortcut, and per-user uninstall registration; it does not overwrite the legacy 3.x installation. It carries an Authenticode-SHA256 signature from `CN=zemeng5208 Test Builds, O=GitHub, OU=Authorized Testing and Secondary Development`, but that self-signed test certificate is not publicly trusted. Verify `BA21C5369AE5BFA5A0236FF112A6FFCAE37EFB36FAA3E9E62E5EE3213A3B8D04` before running it.
 
 ### Portable ZIP
 
@@ -103,7 +103,7 @@ WinBridge-Recovery-V4-win32-x64\WinBridge-Recovery-V4.exe
 
 The portable package does not install a service, create an uninstall entry, or bundle any official Desktop/plugin files. Keep the extracted folder together; do not run individual scripts directly from inside the ZIP. Ordinary packaged demonstration launch does not start real repair.
 
-Before either method, compare the downloaded file's SHA-256 with the value shown in the Release page. Do not treat an unsigned installer or a SmartScreen warning as a successful signature check.
+Before either method, compare the downloaded file's SHA-256 with the value shown in the Release page. A self-signed status identifies the test certificate but does not establish public Windows trust; do not treat SmartScreen status as a public-certificate verification.
 
 ## Updates and public activity
 
@@ -134,6 +134,6 @@ npm run verify:snapshot
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Build-Release.ps1
 ```
 
-The public installer is currently unsigned. Verify the SHA-256 published with each release.
+The public installer uses a self-signed test certificate rather than a publicly trusted certificate. Verify the SHA-256 published with each release.
 
 See [SCOPE-AND-LIMITATIONS.md](SCOPE-AND-LIMITATIONS.md), [README.md](README.md), [LEGAL-NOTICE.md](LEGAL-NOTICE.md), and [SECURITY.md](SECURITY.md).

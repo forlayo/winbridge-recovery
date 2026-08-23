@@ -34,7 +34,7 @@ For those reasons, **task/session checkpoint recovery is intentionally not on th
 
 A successful WinBridge repair means the relevant plugin/runtime surfaces have been restored to a consistent state and can be validated again. It does **not** mean that a previously interrupted Computer Use or Browser task, page, click history, or internal session state has been restored.
 
-The 4.0.0 release records automated/build validation and a clean packaged smoke test. It does not claim universal Windows 10/11 repair compatibility or replace independent real-machine checks of Browser, Chrome, and Computer Use. The public installer is unsigned; use the Release page's SHA-256 sidecar before running it.
+The 4.0.0 release records automated/build validation and a clean packaged smoke test. It does not claim universal Windows 10/11 repair compatibility or replace independent real-machine checks of Browser, Chrome, and Computer Use. The public installer is self-signed with a test certificate rather than a publicly trusted code-signing certificate; use the Release page's SHA-256 sidecar before running it.
 
 ---
 

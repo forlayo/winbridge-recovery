@@ -7,12 +7,12 @@ Status: Latest Release (not a preview)
 
 - [Windows x64 installer](https://github.com/zemeng5208/winbridge-recovery/releases/download/v4.0.0/WinBridge-Recovery-Setup-v4.0.0.exe)
 - [Installer SHA-256 sidecar](https://github.com/zemeng5208/winbridge-recovery/releases/download/v4.0.0/WinBridge-Recovery-Setup-v4.0.0.exe.sha256)
-- Installer SHA-256: `8D49B10F0ADB0E01F21A1D8B0B03D477AA58F3466B08BFD964A21F13B18ECF77`
+- Installer SHA-256: `BA21C5369AE5BFA5A0236FF112A6FFCAE37EFB36FAA3E9E62E5EE3213A3B8D04`
 - [Windows x64 portable ZIP](https://github.com/zemeng5208/winbridge-recovery/releases/download/v4.0.0/WinBridge-Recovery-v4.0.0-portable-win-x64.zip)
 - [Portable ZIP SHA-256 sidecar](https://github.com/zemeng5208/winbridge-recovery/releases/download/v4.0.0/WinBridge-Recovery-v4.0.0-portable-win-x64.zip.sha256)
-- Portable ZIP SHA-256: `D0EFB50EB104306AA00185668255D0B44BFECE430C4B02699827DE1E7B46B601`
+- Portable ZIP SHA-256: `FD8C6FEC7BF164D49BBC99B43303DA900B3CACCBBE2563FE52983ABA45C0EEA7`
 
-The public installer is currently unsigned; Windows SmartScreen may show the normal warning. Verify the sidecar before running it. The installer uses a separate `WinBridge-Recovery-V4` installation, desktop shortcut, and per-user uninstall registration, and does not overwrite legacy 3.x.
+The installer and portable V4 executable are Authenticode-SHA256 signed with the self-signed test certificate `CN=zemeng5208 Test Builds, O=GitHub, OU=Authorized Testing and Secondary Development`. The certificate is not publicly trusted, so Windows SmartScreen may still show an unknown-publisher warning. Verify the sidecar before running it. The installer uses a separate `WinBridge-Recovery-V4` installation, desktop shortcut, and per-user uninstall registration, and does not overwrite legacy 3.x.
 
 ## Verified 4.0.0 behavior
 
