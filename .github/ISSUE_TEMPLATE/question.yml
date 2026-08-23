@@ -8,6 +8,8 @@ body:
         Use this form for questions that are not clearly bugs or feature requests. Do not include passwords, cookies, tokens, API keys, session data, private configuration files, or other sensitive information.
 
         WinBridge Recovery restores plugin/runtime infrastructure state. It does not restore the last Computer Use/Browser page, click/action history, hidden Agent/CUA execution state, or the original task from an exact interrupted step. Those capabilities are intentionally outside the current roadmap; see SCOPE-AND-LIMITATIONS.md.
+
+        Current public release: https://github.com/zemeng5208/winbridge-recovery/releases/latest . The ordinary 4.0.0 packaged demonstration is non-repairing by default.
   - type: dropdown
     id: topic
     attributes:
@@ -37,7 +39,7 @@ body:
     id: version
     attributes:
       label: WinBridge Recovery version
-      placeholder: v3.x.x (if relevant)
+      placeholder: v4.0.0 (if relevant)
     validations:
       required: false
   - type: checkboxes

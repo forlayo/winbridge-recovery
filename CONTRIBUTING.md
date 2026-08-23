@@ -4,6 +4,8 @@ Thank you for helping improve WinBridge Recovery.
 
 WinBridge Recovery is an independent, non-commercial open-source project focused on Windows Codex Desktop plugin recovery and diagnostics. The earlier script-based predecessor is preserved at [codex-desktop-plugin-repair-safety-kit](https://github.com/zemeng5208/codex-desktop-plugin-repair-safety-kit), while active development, support, issues, and releases are maintained in this repository.
 
+The current formal public release is [WinBridge Recovery 4.0.0](https://github.com/zemeng5208/winbridge-recovery/releases/tag/v4.0.0). Use the exact release version in bug reports; the public installer is currently unsigned and must be verified with its SHA-256 sidecar.
+
 WinBridge is a **plugin/runtime recovery tool**, not a Computer Use/Browser task-checkpoint system. The project intentionally does not attempt to restore the last clicked/viewed page, reconstruct action or screenshot history, recover hidden Agent/CUA execution state, or resume an interrupted task from the exact execution step. It also does not add background screen/key/activity recording as a partial substitute. See `SCOPE-AND-LIMITATIONS.md` before proposing work in this area.
 
 ## Reporting a bug
@@ -18,6 +20,8 @@ Use the repository's **Bug report** issue form and include, when relevant:
 - the minimal diagnostic output needed to understand the problem
 
 Please search existing issues first when practical.
+
+For 4.0.0 reports, distinguish read-only preflight/diagnosis, packaged demonstration inspection, and an explicitly authorized real-repair test. Static checks and a packaged smoke test are useful evidence but do not replace an independent real Windows Browser, Chrome, or Computer Use interaction.
 
 Failure to restore a previously interrupted Computer Use/Browser task, page, action history, hidden task state, or exact execution step is not by itself a WinBridge repair bug because those capabilities are outside the supported product scope.
 
@@ -61,6 +65,7 @@ Small, focused pull requests are preferred. Please:
 6. Do not add unsupported hidden task-state extraction or broad activity recording as an attempted checkpoint system.
 7. Document meaningful user-visible changes.
 8. Include relevant validation or test notes when behavior changes.
+9. Do not describe Preview 1 or an older 3.x asset as the current release; link to the [Latest Release](https://github.com/zemeng5208/winbridge-recovery/releases/latest) when discussing public downloads.
 
 ## Project history
 

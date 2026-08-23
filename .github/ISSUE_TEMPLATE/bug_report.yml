@@ -8,12 +8,14 @@ body:
         Thanks for helping improve WinBridge Recovery. Please do not upload passwords, cookies, tokens, API keys, session databases, full private configuration files, or other sensitive data.
 
         Scope note: WinBridge repairs plugin/runtime infrastructure. Failure to restore a previously interrupted Computer Use/Browser page, action history, hidden Agent/CUA execution state, changed-file task history, or exact execution step is not by itself a WinBridge repair bug. Those capabilities are intentionally outside the current roadmap; see SCOPE-AND-LIMITATIONS.md.
+
+        Current public release: https://github.com/zemeng5208/winbridge-recovery/releases/latest . The ordinary 4.0.0 packaged demonstration is non-repairing by default; a current read-only diagnosis and explicit user action are required before a real-repair request can pass its gates.
   - type: input
     id: winbridge_version
     attributes:
       label: WinBridge Recovery version
-      description: Example: v3.0.0-beta.1 or v3.1.0-beta.1
-      placeholder: v3.x.x
+      description: Use the exact version from the Release page, for example v4.0.0.
+      placeholder: v4.0.0
     validations:
       required: true
   - type: input

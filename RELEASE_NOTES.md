@@ -1,95 +1,56 @@
 # WinBridge Recovery v4.0.0
 
-## Access Guard and atomic recovery
+This is the first integrated WinBridge Recovery 4.0 formal Windows release built from the two V4 development branches. The [GitHub Release](https://github.com/zemeng5208/winbridge-recovery/releases/tag/v4.0.0) is the current Latest Release.
 
-This development branch now carries the first WinBridge 4.0 access-denied and file-lock hardening work, based on real-world `Move-Item` / `Access Denied` failures reported against the 3.1.1 repair flow.
+## Integrated in this version
 
-### New behavior
+- Electron desktop shell with an isolated Worker process and fixed preload API.
+- React interface with structured terminal output, independent plugin status, configurable layout/material/color controls, accessibility fallbacks, Snake, and Minesweeper.
+- Verified `integrated-4.0.0` engine snapshot using the mature 3.1.1 repair core.
+- Unified read-only preflight report before diagnosis or repair.
+- Access Guard checks for running Desktop processes, file locks, permissions, security-product context, and post-failure evidence.
+- Bounded retry for transient atomic directory move failures.
+- Long-path-safe resource mirror and log retention cleanup.
+- Diagnose-first gating: a current structured report and explicit user action are required before a packaged real-repair launch.
+- Real repair uses a dedicated 30-minute UI request timeout instead of the generic 120-second timeout.
+- Repair failures are localized in the visible status area while the terminal retains the original English diagnostic text.
+- Both “Skip repair and open GPT” and “Open GPT directly” terminate only the current WinBridge-owned repair process tree before launching GPT.
+- After either GPT handoff succeeds, WinBridge Recovery 4.0 shuts down completely while leaving GPT running.
+- Browser, Chrome, and Computer Use cards update independently from live diagnostic and repair log evidence before the final report arrives.
+- Stage 4 switches from the user-decision state to repair-in-progress immediately after confirmation; Stage 5 starts when Desktop reports that it has opened and remains active through post-start verification.
+- Development-only stage-state text has been removed from the packaged interface.
+- All five runtime layouts keep their panels inside the scrollable window at narrow and normal desktop sizes; stage, terminal, progress, and plugin cards no longer cover one another.
+- Social feed entries strip frontend markup, show official X profile avatars through a bounded local cache, preserve unknown timestamps as `Time unavailable`, and expose source labels and translation controls.
 
-- Added `WinBridge-4.0-AccessGuard.ps1` as a read-only environment and lock diagnostic layer.
-- `RepairAndLaunch` now runs Access Guard before the repair core starts.
-- The preflight blocks repair when ChatGPT/Codex Desktop is still running, instead of allowing the repair and Desktop to operate on the same plugin/runtime state at the same time.
-- `DiagnoseOnly` runs the same data collection without blocking or modifying the target state.
-- If the repair core starts and later fails, the configured launcher automatically runs Access Guard again in `PostFailure` mode so the run log and failure-time environment can be reviewed together.
-- Added `DIAGNOSE-ACCESS-DENIED.cmd` for one-click read-only collection of the same report.
-- Reports collect target existence, attributes, reparse-point state, owner, SDDL/ACL context, `icacls` output, relevant ChatGPT/Codex/helper/browser processes, Restart Manager lock owners, antivirus/security-product context, matching security/encryption/DLP service candidates, file-system minifilters, and BitLocker status.
-- Restart Manager interop uses `System.Runtime.InteropServices.ComTypes.FILETIME` explicitly to avoid the `FILETIME` type ambiguity seen in an earlier diagnostic attempt.
-- Generic `node.exe` processes are not treated as Codex helpers unless their path or command line contains Codex/plugin/CUA-specific indicators.
-- Security/encryption/DLP discovery is diagnostic only. A matching service is reported as a candidate, not asserted to be the root cause.
+## Demonstration safety and repair gate
 
-### Atomic directory move hardening
+The ordinary desktop demonstration build does not include the `--enable-real-repair` launch flag. It can be used to inspect the interface without starting a real repair. A current read-only preflight/diagnosis report and an explicit user action are required before a packaged real-repair request can pass its separate gates.
 
-- The configured 4.0 launcher now applies a checked patch to the generated runtime copy of `Start-WinBridge-Recovery.ps1`.
-- The original core source file remains unchanged and the existing SHA-256 source-integrity check is retained.
-- Five directory move/swap points used by atomic install, removal, rollback, and restore are replaced in the runtime copy with bounded retry logic.
-- Each move receives up to six attempts with short backoff delays. This is intended only for transient races such as a short antivirus/EDR scan or another temporary file handle.
-- The patch validates the expected core layout and exact occurrence count before changing the runtime copy. If a future core layout no longer matches, WinBridge refuses to apply the patch rather than modifying an unknown structure.
-- Permanent permission, policy, encryption, ACL, reparse-point, or filter-driver failures are not bypassed; after the bounded retry is exhausted the original operation still fails and a post-failure Access Guard report is collected.
+## Distribution
 
-### Safety boundaries retained
+- Windows x64 installer: [`WinBridge-Recovery-Setup-v4.0.0.exe`](https://github.com/zemeng5208/winbridge-recovery/releases/download/v4.0.0/WinBridge-Recovery-Setup-v4.0.0.exe).
+- Windows x64 portable archive: [`WinBridge-Recovery-v4.0.0-portable-win-x64.zip`](https://github.com/zemeng5208/winbridge-recovery/releases/download/v4.0.0/WinBridge-Recovery-v4.0.0-portable-win-x64.zip).
+- SHA-256 sidecars are published beside both artifacts.
+- Installer SHA-256: `8D49B10F0ADB0E01F21A1D8B0B03D477AA58F3466B08BFD964A21F13B18ECF77`.
+- Portable ZIP SHA-256: `D0EFB50EB104306AA00185668255D0B44BFECE430C4B02699827DE1E7B46B601`.
+- The installer creates a separate `WinBridge-Recovery-V4` installation, desktop shortcut, and per-user uninstall registration; it does not overwrite the legacy 3.x installation.
+- The public installer is currently unsigned; Windows SmartScreen may show the normal warning for an unsigned first-party build.
 
-WinBridge 4.0 Access Guard does **not**:
+## Validation status
 
-- disable, uninstall, evade, or bypass enterprise EDR/DLP/encryption software;
-- modify company security policy;
-- take ownership of the entire `.codex` tree or reset its ACLs;
-- change ownership or permissions under `C:\Program Files\WindowsApps`;
-- force-delete repair targets;
-- kill every `node.exe` process;
-- remove backup/integrity checks;
-- use injection, hooks, drivers, or kernel techniques to defeat a security product.
+- PowerShell syntax scan: passed.
+- Automated runtime tests: 83 passed, 0 failed.
+- Design Lab production build, frontend sync, and packaging input checks: passed.
+- Packaged runtime: Electron 43.4.0, Windows x64.
+- Packaged EXE version: `4.0.0`.
+- Packaged EXE SHA-256: `C2C4FA49F7FC58775194F443A8B0372D568B741E563DBC57F379D0F856D96F33`.
+- Packaged EXE smoke test: stayed alive for five seconds in a clean environment and was then stopped; no exact-package processes remained.
+- Packaged application contains `engine/integrated-4.0.0` and excludes the historical `engine/frozen-3.1.1` snapshot.
+- A full fresh Windows 10/11 + Windows PowerShell 5.1 repair regression matrix remains a follow-up validation item; see [#13](https://github.com/zemeng5208/winbridge-recovery/issues/13). The release does not claim universal Windows host compatibility.
 
-If a company security product or file-system filter is the actual policy owner of the directory, the correct next step is to use the generated evidence with the company IT/security administrator rather than bypassing the control.
+---
 
-### Validation status
-
-- GitHub-side source review of the new wrapper integration and safety boundaries: PASS.
-- The original `Start-WinBridge-Recovery.ps1` source remains unchanged by the 4.0 runtime patch design.
-- Windows-only runtime execution of Restart Manager, `fltmc`, `manage-bde`, and the bounded `Move-Item` retry path has **not yet been executed in this Linux tool environment**. This development branch still requires a real Windows 10/11 + Windows PowerShell 5.1 test before the behavior should be treated as release-ready.
-## Reliability and diagnosis foundation
-
-This preview starts the WinBridge Recovery 4.0 line with a reliability-first foundation rather than a cosmetic version bump.
-
-### Unified preflight diagnosis
-
-- Added `WinBridge-4.0-Preflight.ps1`, a read-only preflight layer that writes a structured JSON report before normal diagnosis/repair.
-- Reports Windows build/architecture, Windows PowerShell version, long-path policy, launcher path length, free disk space, installed `OpenAI.Codex` AppX identity, bundled plugin versions, active marketplace versions, cache/`latest` state, Native Host state, pending recovery transactions, and running Chrome/Edge processes.
-- Produces a compact layer model for `host`, `package`, `marketplace`, `cache`, `native-host`, `recovery`, and `runtime`.
-- Records the first divergent recovery layer so a report can distinguish package-level problems from marketplace/cache/Native Host drift.
-- Windows 10 hosts are now identified explicitly. WinBridge can diagnose the host, while actual Codex Desktop availability still depends on whether the current official package is available and installed on that machine.
-- Preflight results are advisory; the existing repair core remains authoritative and still performs its own safety checks before any mutation.
-
-### Long-path and retention hardening
-
-- Reworked launcher maintenance cleanup to use extended-length `\\?\` paths and .NET file/directory APIs instead of relying on `Remove-Item -Recurse` for deeply nested resource mirrors.
-- Resource-mirror cleanup failures caused by a lock or access denial are now reported as deferred cleanup rather than automatically converting an otherwise successful repair into a total launcher failure.
-- Log cleanup receives the same long-path-safe treatment and reports deferred files separately.
-- Preflight reports are included in normal log-retention grouping.
-
-### 4.0 build/version pipeline
-
-- The launcher build now creates temporary version-stamped compiler sources and builds the 4.0 preview without permanently rewriting the large checked-in C# implementation files.
-- Main launcher assembly/file version is stamped as `4.0.0.0`; preview-facing text uses `4.0.0-preview.1`.
-- The updater keeps the parseable numeric comparison version `4.0.0` while using the preview identifier in its user agent/build output.
-- Installer and uninstaller assembly versions are stamped as `4.0.0.0` at build time.
-- Installer registration and install-manifest metadata use `4.0.0-preview.1`.
-- The 4.0 preflight helper is included in the installer payload.
-
-## Preview limitations / remaining 4.0 work
-
-- This is the 4.0 foundation branch, not a final 4.0 release.
-- The main recovery core still contains the mature v3.1.1 repair implementation; later 4.0 work will move additional reliability logic into that core after Windows regression testing.
-- Precise file-lock ownership (owning PID/executable/command line), a full per-plugin hash/path/version matrix, targeted repair planning, and official-first Native Host reconciliation remain open roadmap work.
-- A resource-mirror staging failure inside the atomic installation phase can still require separate root-cause handling; this preview specifically hardens diagnosis and post-run/retention cleanup first.
-- Windows 10 detection does not promise that an upstream official Codex Desktop package exists for every Windows 10 build.
-
-## Validation required before merge/release
-
-- Build the launcher, installer, and uninstaller on a clean Windows PowerShell 5.1 environment.
-- Run `SELF-TEST.cmd` and `DIAGNOSE-ONLY.cmd` on Windows 11.
-- Run the new preflight on at least one Windows 10 host and confirm it reports host/package availability accurately without claiming unsupported upstream compatibility.
-- Reproduce a deeply nested obsolete resource mirror and verify maintenance cleanup succeeds beyond legacy path limits.
-- Repeat the locked-mirror case and confirm the run reports deferred cleanup without deleting the active mirror or weakening rollback guarantees.
+# Historical release notes
 ---
 
 # WinBridge Recovery v3.1.1

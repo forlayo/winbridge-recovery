@@ -1,5 +1,7 @@
 # WinBridge Recovery 4.0.0 Alpha 1
 
+> Historical development preview. It is not the current public version; use the [v4.0.0 Latest Release](https://github.com/zemeng5208/winbridge-recovery/releases/tag/v4.0.0) for current Windows x64 assets and documentation.
+
 **Development Preview / 开发预览**
 
 This pre-release publishes the first collaborative source snapshot of WinBridge Recovery 4.0. It is intended for development, review, and testing only.

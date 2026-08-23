@@ -6,17 +6,17 @@
 - npm observed during the isolated build: `11.16.0`.
 - Electron is exactly locked to `43.4.0`.
 - `@electron/packager` is exactly locked to `20.3.0`.
-- Target package: Windows x64, portable directory, no installer and no signature in this phase.
+- Formal 4.0.0 distribution: Windows x64 installer and portable archive. The public installer is currently unsigned; SHA-256 sidecars are published beside both assets.
 
 Electron runs the main/preload code with its bundled Node/Chromium versions; the independent worker is forked with Electron's executable in Node mode in a packaged build. The host development Node is used only for dependency scripts and synthetic tests. No native addon is present, so there is no ABI rebuild requirement in this first runtime shell.
 
 ## Capability policy
 
 - `npm start` and all synthetic tests: real repair capability is disabled.
-- Packaged Electron alpha remains non-repairing unless launched with the exact `--enable-real-repair` switch. The main process requires both Electron's `app.isPackaged` and that switch, then passes only the derived boolean to its own Worker.
+- The formal 4.0.0 packaged demonstration remains non-repairing unless launched with the exact `--enable-real-repair` switch. The main process requires both Electron's `app.isPackaged` and that switch, then passes only the derived boolean to its own Worker.
 - Capability is not authorization. `startRepair(reportId)` still rejects when the report is absent, not current, expired, or contains only `report-only` categories. Only a direct fixed-channel API call with a current eligible report can reach the unchanged `RepairAndLaunch` entrypoint.
 - Ordinary `npm start`, ordinary packaged double-click, lookalike arguments, and all synthetic tests keep the capability off. A future total-control-created test shortcut may carry the exact switch; this runtime task does not create it.
-- No real diagnosis or repair was invoked during specialist validation.
+- No real diagnosis or repair was invoked during specialist validation. A fresh Windows 10/11 + Windows PowerShell 5.1 regression matrix remains open and is tracked in [issue #13](https://github.com/zemeng5208/winbridge-recovery/issues/13).
 
 ## Local-content security
 

@@ -1,5 +1,7 @@
 # WinBridge Recovery — Scope and Limitations
 
+The current formal release is [WinBridge Recovery 4.0.0](https://github.com/zemeng5208/winbridge-recovery/releases/tag/v4.0.0), published for Windows x64. The ordinary packaged demonstration is non-repairing by default. A current read-only preflight/diagnosis report plus an explicit user action are required before a real-repair request can pass its separate gates.
+
 ## What WinBridge Recovery does
 
 WinBridge Recovery is a Windows recovery launcher for the Browser, Chrome, and Computer Use plugin infrastructure used by GPT/Codex Desktop. Its job is to detect and repair supported local state such as bundled marketplace data, plugin cache, `latest` pointers, runtime paths, native-host registration, and the launcher’s own verified backup/rollback state.
@@ -32,9 +34,13 @@ For those reasons, **task/session checkpoint recovery is intentionally not on th
 
 A successful WinBridge repair means the relevant plugin/runtime surfaces have been restored to a consistent state and can be validated again. It does **not** mean that a previously interrupted Computer Use or Browser task, page, click history, or internal session state has been restored.
 
+The 4.0.0 release records automated/build validation and a clean packaged smoke test. It does not claim universal Windows 10/11 repair compatibility or replace independent real-machine checks of Browser, Chrome, and Computer Use. The public installer is unsigned; use the Release page's SHA-256 sidecar before running it.
+
 ---
 
 # WinBridge Recovery — 范围与限制
+
+当前正式版是面向 Windows x64 发布的 [WinBridge Recovery 4.0.0](https://github.com/zemeng5208/winbridge-recovery/releases/tag/v4.0.0)。普通打包演示默认不会启动真实修复；只有当前有效的只读预检/诊断报告和用户明确动作同时满足，真实修复请求才可能通过独立门禁。
 
 ## WinBridge Recovery 做什么
 
@@ -67,3 +73,5 @@ WinBridge Recovery 是独立的外部项目。目前项目没有一个受支持�
 ## “修复成功”代表什么
 
 WinBridge 修复成功，代表相关插件/运行时基础设施已经恢复到一致状态，并可重新进行实际功能验证；它**不代表**之前中断的 Computer Use/Browser 任务、页面、点击历史或内部会话状态已经恢复。
+
+4.0.0 Release 记录了自动化/构建校验和干净环境打包 smoke test，但不宣称所有 Windows 10/11 主机都具备完整修复兼容性；Browser、Chrome、Computer Use 仍需在真实目标机上分别验证。公开安装器当前未签名，运行前请使用 Release 页面提供的 SHA-256 sidecar 校验。
