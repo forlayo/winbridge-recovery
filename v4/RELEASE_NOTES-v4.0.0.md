@@ -15,6 +15,7 @@ This is the first integrated WinBridge Recovery 4.0 release candidate built from
 - Real repair uses a dedicated 30-minute UI request timeout instead of the generic 120-second timeout.
 - Repair failures are localized in the visible status area while the terminal retains the original English diagnostic text.
 - Both "Skip repair and open GPT" and "Open GPT directly" terminate only the current WinBridge-owned repair process tree before launching GPT.
+- After either GPT handoff succeeds, WinBridge Recovery 4.0 shuts down completely while leaving GPT running.
 
 ## Demonstration safety
 
@@ -25,8 +26,8 @@ The ordinary desktop demonstration build does not include the `--enable-real-rep
 - PowerShell syntax scan: passed.
 - Automated runtime tests: 77 passed, 0 failed.
 - Design Lab production build: passed (44 modules).
-- Packaged runtime: Electron 43.4.0, Windows x64, 75 files, 365,468,250 bytes.
+- Packaged runtime: Electron 43.4.0, Windows x64, 75 files, 365,468,628 bytes.
 - Packaged EXE version: `4.0.0`.
-- Packaged EXE SHA-256: `63D71A511A6F2245331571999DAB37B23733177B66BDC37194AE02957ED12CD0`.
+- Packaged EXE SHA-256: `3014CA7647620E0231A66A9AB2CAA6BC1935118F8D3E0C079DFE2EB4B32E2C05`.
 - Packaged application contains `engine/integrated-4.0.0` and excludes the historical `engine/frozen-3.1.1` snapshot.
 - The desktop demonstration shortcut launches without `--enable-real-repair`, so real repair remains disabled.

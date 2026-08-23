@@ -16,10 +16,12 @@ test('real repair has a dedicated long-running request timeout', () => {
 });
 
 test('opening GPT cancels the owned repair tree first', () => {
+  const mainSource = fs.readFileSync(path.join(projectRoot, 'src', 'main', 'main.cjs'), 'utf8');
   const workerSource = fs.readFileSync(path.join(projectRoot, 'src', 'worker', 'engine-worker.cjs'), 'utf8');
   const adapterSource = fs.readFileSync(path.join(projectRoot, 'src', 'worker', 'engine-adapter.cjs'), 'utf8');
   assert.match(workerSource, /case 'gpt\.open':[\s\S]*adapter\.cancel\(\)[\s\S]*openInstalledGPT/);
   assert.match(adapterSource, /spawnSync\('taskkill\.exe', \['\/PID', String\(child\.pid\), '\/T', '\/F'\]/);
+  assert.match(mainSource, /const result = await manager\.request\('gpt\.open'\);[\s\S]*setImmediate\(\(\) => app\.quit\(\)\);[\s\S]*launcherClosing: true/);
 });
 
 test('read-only pool respects its concurrency cap and preserves result order', async () => {

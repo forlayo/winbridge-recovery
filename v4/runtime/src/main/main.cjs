@@ -68,7 +68,11 @@ function registerIpc() {
     if (error) throw new Error(error);
     return { opened: true };
   });
-  registerHandler(IPC.OPEN_GPT, () => manager.request('gpt.open'));
+  registerHandler(IPC.OPEN_GPT, async () => {
+    const result = await manager.request('gpt.open');
+    setImmediate(() => app.quit());
+    return { ...result, launcherClosing: true };
+  });
   registerHandler(IPC.GET_PLUGIN_ASSETS, () => manager.request('plugins.assets'));
   registerHandler(IPC.GET_SOCIAL_FEED, (options) => manager.request('social.feed', validateSocialFeedOptions(options)), 1);
   registerHandler(IPC.TRANSLATE_SOCIAL_POST, (request) => manager.request('social.translate', validateTranslationRequest(request)), 1);
