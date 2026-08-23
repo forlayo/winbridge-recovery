@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "version": "4.0.0",
+  "coreVersion": "3.1.1",
+  "sourceRepository": "https://github.com/zemeng5208/winbridge-recovery.git",
+  "sourceCommit": "d9e587f458f84f7f20e6859ddbf6681d70c10ddf",
+  "capturedAt": "2026-08-23T07:54:04.6281536+08:00",
+  "license": "MIT",
+  "immutabilityPolicy": "verify-copy-run; never execute in place",
+  "files": [
+    {
+      "path": "Audit-Launcher-Writes.ps1",
+      "sha256": "8465C66C674D93E113F20F966B587C835C00F5A45FF86FA5B71C9885B3A9644B"
+    },
+    {
+      "path": "Invoke-WinBridge-Configured.ps1",
+      "sha256": "7C69A785E7A313E295F8566DA150607E91A8DA47752CBD9024D1C09241EBF610"
+    },
+    {
+      "path": "LEGAL-NOTICE.md",
+      "sha256": "328B5D37242459FC256A6174A3D79AE88858F760274871EC3456B23C4EB061A6"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "E449DE2A6271243E2F3B96E35D376F6F7F878590AAD722BE6B7E7A3D31AF00A3"
+    },
+    {
+      "path": "Maintain-Launcher-State.ps1",
+      "sha256": "33242B0B702662837C1C2ED72F2902A1FA0453C78A8F3887E0649178B6264DF2"
+    },
+    {
+      "path": "Repair-BrowserLatest.ps1",
+      "sha256": "D580DC21191AF61C0B23D8CA795B690A451382E68B14C6DCFF00D2592C75C422"
+    },
+    {
+      "path": "Start-WinBridge-Recovery.ps1",
+      "sha256": "1C16F5184D77810DEA561DC5825BCE1D832BDD6BB171CAF420FADC5EB3D5082D"
+    },
+    {
+      "path": "WinBridge-4.0-AccessGuard.ps1",
+      "sha256": "F2E6E1431395CC0BF2EF8147231857BE7862CDFD62160C1BE5FE7FDA325A94A3"
+    },
+    {
+      "path": "WinBridge-4.0-Preflight.ps1",
+      "sha256": "9AA7F63F8DF1990B546BD7690B3C3C68D4A983CBDA282C30ACF92549E58B90B0"
+    }
+  ]
+}

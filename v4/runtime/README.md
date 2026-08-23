@@ -15,7 +15,7 @@
 - Renderer 的 `connect-src` 固定为 `'none'`；社交请求不会因此放宽，因为它只通过 preload → Worker → main broker。
 - 开发态不注册生产响应头拦截器，因此不会意外阻断既有本地 Vite/回退工作流。内置 fallback 自身保留同等严格的 meta CSP。
 
-这是独立预发布 Electron 外壳。它不会修改 3.1.1 正式目录，也不会自动执行真实修复。
+这是 WinBridge Recovery 4.0.0 Electron 外壳。它不会修改 3.1.1 正式目录，也不会自动执行真实修复。
 
 ## 边界
 
@@ -24,7 +24,7 @@
 - 文件持久化、系统探测、诊断适配和外部引擎进程全部在独立 Worker 中执行。
 - 默认禁止真实修复。只有已打包应用以精确启动参数 `--enable-real-repair` 启动时才具备候选能力；能力开启后仍必须先有结构化诊断报告和显式用户选择。
 - 退出时只终止本应用自己 fork/spawn 的 Worker 和直接辅助进程 PID；绝不按进程名终止 ChatGPT、Codex、Chrome 或 Edge。
-- `engine/frozen-3.1.1` 是来源和 SHA-256 均固定的 3.1.1 快照；会话运行前复制到应用数据目录，绝不反向写源快照或 Publish。
+- `engine/integrated-4.0.0` 是来源和 SHA-256 均固定的 4.0.0 包装层快照，内部保留成熟的 3.1.1 修复核心，并加入统一预检、Access Guard、长路径维护与有限重试；会话运行前复制到应用数据目录，绝不反向写源快照或 Publish。
 - Runtime 只允许受控同步脚本读取固定相邻来源 `..\design-lab\dist`；脚本不会修改 UI 工程，也不接受调用者提供其他路径。
 
 ## 开发
@@ -58,7 +58,7 @@ npm run pack:win
 
 ## 真实能力门槛
 
-- `runDiagnosis()`：调用冻结快照的 `DiagnoseOnly`，但本专项不运行它。
+- `runDiagnosis()`：调用 4.0.0 集成快照的 `DiagnoseOnly`。
 - `startRepair(reportId)`：需要已打包应用以精确参数 `--enable-real-repair` 启动、当前结构化报告、显式调用、报告尚未过期，并至少包含一项 `suggest-repair`。开发直启、无参数双击和合成测试均关闭。
 - `openGPT()`：只在用户显式点击时由 Worker 启动系统已安装的包；退出钩子不会终止它。
 - `getPluginAssets()`：无参数只读读取当前 `CODEX_HOME` 中 Browser、Chrome、Computer Use 的官方清单图标；只返回受限 data URL、显示名、版本和哈希，不返回路径、不复制资源，单项缺失或越界时返回 `available=false`。

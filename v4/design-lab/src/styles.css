@@ -320,7 +320,7 @@ button:disabled { cursor: default; opacity: .55; }
 .product-title strong b { color: var(--app-accent); font-weight: 750; }
 .product-title small { color: var(--app-muted); font-size: 8.5px; }
 .titlebar-state { gap: 7px; color: var(--app-muted); font-size: 9px; }
-.titlebar-runtime { grid-area: runtime; display: flex; align-items: center; justify-content: center; min-width: 0; }
+.titlebar-runtime { grid-area: runtime; display: flex; align-items: center; justify-content: center; min-width: max-content; }
 .titlebar-safety { grid-area: safety; display: flex; align-items: center; justify-content: flex-end; gap: 5px; min-width: 0; }
 .titlebar-safety > button { display: grid; place-items: center; width: 28px; height: 27px; border: 0; border-radius: 5px; color: var(--app-muted); background: transparent; }
 .titlebar-safety > button:hover { color: var(--app-text); background: color-mix(in srgb, var(--app-text) 7%, transparent); }
@@ -1386,7 +1386,7 @@ button:disabled { cursor: default; opacity: .55; }
 .runtime-mode .recovery-window { width:100%; height:100%; min-height:100%; border-radius:0; border:0; }
 .runtime-mode .recovery-titlebar {
   min-height: max(53px, env(titlebar-area-height, 53px));
-  padding-right: max(152px, calc(100vw - env(titlebar-area-x, calc(100vw - 152px))));
+  padding-right: 152px;
   -webkit-app-region: drag;
   user-select: none;
 }
@@ -1497,6 +1497,7 @@ button:disabled { cursor: default; opacity: .55; }
   font-family: "Cascadia Code", Consolas, monospace;
   font-size: 7px;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .nebula-fluid {

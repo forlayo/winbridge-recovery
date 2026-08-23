@@ -19,26 +19,27 @@ test.after(async () => {
 test('adapter verifies frozen hashes and prepares only an isolated session copy', async () => {
   const adapter = new EngineAdapter({
     dataRoot: testRoot,
-    engineRoot: path.join(projectRoot, 'engine', 'frozen-3.1.1'),
+    engineRoot: path.join(projectRoot, 'engine', 'integrated-4.0.0'),
     concurrency: 2,
     onEvent: () => {}, onLog: () => {}, registerChild: () => {}, unregisterChild: () => {}
   });
   const verified = await adapter.verifySnapshot();
-  assert.equal(verified.version, '3.1.1');
-  assert.equal(verified.verifiedFiles, 7);
+  assert.equal(verified.version, '4.0.0');
+  assert.equal(verified.coreVersion, '3.1.1');
+  assert.equal(verified.verifiedFiles, 9);
   const prepared = await adapter.prepareSession('session-fixture-0001');
   const config = await fs.readFile(path.join(prepared.sessionRoot, 'Config', 'storage.ini'), 'utf8');
   assert.match(config, /backup_root=/);
   assert.ok(config.includes(path.join(testRoot, 'backups')));
   const copied = await fs.readFile(path.join(prepared.sessionRoot, 'Start-WinBridge-Recovery.ps1'), 'utf8');
-  const frozen = await fs.readFile(path.join(projectRoot, 'engine', 'frozen-3.1.1', 'Start-WinBridge-Recovery.ps1'), 'utf8');
+  const frozen = await fs.readFile(path.join(projectRoot, 'engine', 'integrated-4.0.0', 'Start-WinBridge-Recovery.ps1'), 'utf8');
   assert.equal(copied, frozen);
 });
 
 test('real repair stays disabled by default', async () => {
   const adapter = new EngineAdapter({
     dataRoot: testRoot,
-    engineRoot: path.join(projectRoot, 'engine', 'frozen-3.1.1'),
+    engineRoot: path.join(projectRoot, 'engine', 'integrated-4.0.0'),
     onEvent: () => {}, onLog: () => {}, registerChild: () => {}, unregisterChild: () => {}
   });
   await assert.rejects(() => adapter.startRepair('report-fixture-00000001'), /disabled/);
@@ -49,7 +50,7 @@ function makeCurrentReport({ id, expiresAt, issues }) {
     schemaVersion: 1,
     reportId: id,
     createdAt: new Date().toISOString(),
-    engineSnapshot: { version: '3.1.1' },
+    engineSnapshot: { version: '4.0.0' },
     issues,
     summary: { issueCount: issues.length },
     rawReportPath: null,
@@ -62,7 +63,7 @@ test('enabled launch capability cannot bypass current report, expiry, or categor
   const gatedRoot = path.join(testRoot, 'packaged-gates');
   const adapter = new EngineAdapter({
     dataRoot: gatedRoot,
-    engineRoot: path.join(projectRoot, 'engine', 'frozen-3.1.1'),
+    engineRoot: path.join(projectRoot, 'engine', 'integrated-4.0.0'),
     realRepairEnabled: true,
     onEvent: () => {}, onLog: () => {}, registerChild: () => {}, unregisterChild: () => {}
   });

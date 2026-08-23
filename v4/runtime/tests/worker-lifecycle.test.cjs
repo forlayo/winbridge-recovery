@@ -4,10 +4,17 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { WorkerManager } = require('../src/main/worker-manager.cjs');
+const { WorkerManager, resolveWorkerCwd } = require('../src/main/worker-manager.cjs');
 const { SOCIAL_BROKER_OPERATIONS } = require('../src/shared/social-contracts.cjs');
 
 const projectRoot = path.resolve(__dirname, '..');
+
+test('packaged worker uses the executable directory instead of app.asar as cwd', () => {
+  const packagedRoot = path.join('D:\\Apps', 'WinBridge', 'resources', 'app.asar');
+  const executable = path.join('D:\\Apps', 'WinBridge', 'WinBridge-Recovery-V4.exe');
+  assert.equal(resolveWorkerCwd(packagedRoot, executable), path.dirname(executable));
+  assert.equal(resolveWorkerCwd(projectRoot, executable), projectRoot);
+});
 const testRoot = path.join(projectRoot, '.test-artifacts', 'worker-lifecycle');
 
 function processExists(pid) {

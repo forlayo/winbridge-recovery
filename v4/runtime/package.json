@@ -1,6 +1,6 @@
 {
   "name": "winbridge-recovery-v4",
-  "version": "4.0.0-alpha.1",
+  "version": "4.0.0",
   "private": true,
   "description": "WinBridge Recovery 4.0 isolated Electron runtime shell",
   "main": "src/main/main.cjs",

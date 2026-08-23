@@ -14,7 +14,8 @@ $packageJson = Join-Path $projectRoot 'package.json'
 $electronExecutable = Join-Path $projectRoot 'node_modules\electron\dist\electron.exe'
 $packagerExecutable = Join-Path $projectRoot 'node_modules\.bin\electron-packager.cmd'
 $frontendVerifier = Join-Path $projectRoot 'scripts\verify-frontend.cjs'
-foreach ($required in @($packageJson, $electronExecutable, $packagerExecutable, $frontendVerifier)) {
+$icon = [System.IO.Path]::GetFullPath((Join-Path $projectRoot '..\..\LauncherUI\Assets\WinBridge.ico'))
+foreach ($required in @($packageJson, $electronExecutable, $packagerExecutable, $frontendVerifier, $icon)) {
   if (-not (Test-Path -LiteralPath $required -PathType Leaf)) { throw "Required packaging input is missing: $required" }
 }
 
@@ -36,7 +37,7 @@ if ($ValidateOnly) {
 
 Push-Location $projectRoot
 try {
-  & npm exec -- electron-packager . WinBridge-Recovery-V4 --platform=win32 --arch=x64 --out=$outRoot --overwrite --prune=true --asar --ignore='(^|[\\/])\.test-artifacts($|[\\/])' --ignore='(^|[\\/])runtime-data($|[\\/])' --ignore='(^|[\\/])docs($|[\\/])'
+  & npm exec -- electron-packager . WinBridge-Recovery-V4 --platform=win32 --arch=x64 --out=$outRoot --overwrite --prune=true --asar --app-version=4.0.0 --build-version=4.0.0 --icon=$icon --ignore='(^|[\\/])\.test-artifacts($|[\\/])' --ignore='(^|[\\/])runtime-data($|[\\/])' --ignore='(^|[\\/])docs($|[\\/])' --ignore='(^|[\\/])engine[\\/]frozen-3\.1\.1($|[\\/])'
   if ($LASTEXITCODE -ne 0) { throw "electron-packager failed with exit code $LASTEXITCODE" }
 } finally {
   Pop-Location

@@ -36,7 +36,7 @@ function Write-VersionedSource {
   $text = [System.IO.File]::ReadAllText($SourcePath)
   foreach ($entry in $Replacements.GetEnumerator()) {
     if (-not $text.Contains([string]$entry.Key)) {
-      throw "Version stamp token was not found in $SourcePath: $($entry.Key)"
+      throw "Version stamp token was not found in ${SourcePath}: $($entry.Key)"
     }
     $text = $text.Replace([string]$entry.Key, [string]$entry.Value)
   }

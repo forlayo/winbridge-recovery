@@ -14,7 +14,7 @@ const { getPluginAssets } = require('./plugin-assets.cjs');
 const { SocialFeedService } = require('./social-feed-service.cjs');
 
 const dataRoot = path.resolve(process.env.WINBRIDGE_V4_DATA_ROOT || path.join(__dirname, '..', '..', 'runtime-data'));
-const engineRoot = path.resolve(process.env.WINBRIDGE_V4_ENGINE_ROOT || path.join(__dirname, '..', '..', 'engine', 'frozen-3.1.1'));
+const engineRoot = path.resolve(process.env.WINBRIDGE_V4_ENGINE_ROOT || path.join(__dirname, '..', '..', 'engine', 'integrated-4.0.0'));
 const testMode = process.env.WINBRIDGE_V4_TEST_MODE === '1';
 const realRepairEnabled = process.env.WINBRIDGE_V4_REAL_REPAIR_ENABLED === '1' && !testMode;
 const ownedChildren = new Set();

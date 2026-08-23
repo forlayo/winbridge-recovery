@@ -16,6 +16,13 @@ function sendToWorker(worker, message) {
   }
 }
 
+function resolveWorkerCwd(appRoot, execPath = process.execPath) {
+  const resolvedAppRoot = path.resolve(appRoot);
+  return resolvedAppRoot.toLowerCase().endsWith('.asar')
+    ? path.dirname(path.resolve(execPath))
+    : resolvedAppRoot;
+}
+
 class WorkerManager extends EventEmitter {
   constructor({ appRoot, dataRoot, testMode = false, realRepairCapability = false, requestTimeoutMs = 120000, startupTimeoutMs = 15000, hostBroker = null }) {
     super();
@@ -38,12 +45,13 @@ class WorkerManager extends EventEmitter {
     if (this.shuttingDown) return Promise.reject(new Error('Runtime shutdown is in progress'));
     if (this.readyPromise) return this.readyPromise;
     const workerPath = path.join(this.appRoot, 'src', 'worker', 'engine-worker.cjs');
-    const engineRoot = path.join(this.appRoot, 'engine', 'frozen-3.1.1');
+    const engineRoot = path.join(this.appRoot, 'engine', 'integrated-4.0.0');
+    const workerCwd = resolveWorkerCwd(this.appRoot);
     const attemptToken = Symbol('worker-start-attempt');
     this.startToken = attemptToken;
     const attempt = new Promise((resolve, reject) => {
       const worker = fork(workerPath, [], {
-        cwd: this.appRoot,
+        cwd: workerCwd,
         stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
         windowsHide: true,
         serialization: 'advanced',
@@ -194,4 +202,4 @@ class WorkerManager extends EventEmitter {
   }
 }
 
-module.exports = { WorkerManager };
+module.exports = { WorkerManager, resolveWorkerCwd };

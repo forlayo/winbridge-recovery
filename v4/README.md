@@ -1,15 +1,15 @@
-# WinBridge Recovery 4.0 Development Preview
+# WinBridge Recovery 4.0.0
 
-This directory contains the in-progress WinBridge Recovery 4.0 source code.
+This directory contains the first integrated WinBridge Recovery 4.0 source release.
 
-> Status: `4.0.0-alpha.1` development preview. It is not a stable release and does not replace the current 3.1.1 build.
+> Status: `4.0.0` first integrated release. The ordinary desktop demo keeps real repair disabled unless the explicit packaged repair capability is enabled.
 
 ## Projects
 
 - `design-lab`: React/Vite interface, themes, structured terminal, fluid progress UI, settings, and mini games.
-- `runtime`: Electron shell, isolated Worker, bounded logs, plugin asset bridge, frozen 3.1.1 engine snapshot, tests, and packaging validation.
+- `runtime`: Electron shell, isolated Worker, bounded logs, plugin asset bridge, integrated 4.0.0 engine snapshot, tests, and packaging validation.
 
-Real repair is disabled by default. This preview is published as source code only; no EXE, ZIP, portable package, or installer is attached.
+Real repair is disabled by default. The desktop demonstration build therefore cannot modify plugin state unless it is deliberately launched with the packaged repair capability flag.
 
 ## Local development
 
@@ -32,14 +32,12 @@ npm start
 
 ## Collaboration
 
-Base development work on the `v4-development` branch. Create a focused feature branch, keep commits scoped to real changes, run the relevant checks, and open a pull request back to `v4-development`.
+Base follow-up development on the integrated 4.0 branch after it is reviewed. Create focused feature branches, keep commits scoped to real changes, and run the relevant checks before merging.
 
 Do not commit `node_modules`, build output, local logs, screenshots, caches, secrets, personal paths, or signing material.
 
 ## Current boundaries
 
-- The UI and runtime architecture are still changing.
-- Real repair remains gated and disabled during ordinary development runs.
-- 3.1.1 remains the recommended build for normal use.
-- This source preview provides no installation or update guarantee.
-
+- Real repair remains gated and disabled in ordinary demonstration runs.
+- The mature 3.1.1 repair core remains preserved inside the verified 4.0.0 wrapper snapshot.
+- Final publication still requires the packaged Windows build and live acceptance evidence recorded for this commit.
