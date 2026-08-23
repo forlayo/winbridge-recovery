@@ -24,6 +24,9 @@ $portableRoot = Join-Path $stageRoot 'portable\WinBridge-Recovery-V4-win32-x64'
 $payloadZip = Join-Path $stageRoot 'payload.zip'
 $installerPath = Join-Path $outputRoot 'WinBridge-Recovery-Setup-v4.0.0.exe'
 $portableZip = Join-Path $outputRoot 'WinBridge-Recovery-v4.0.0-portable-win-x64.zip'
+$signingRoot = Join-Path $repoRoot 'Installer\Signing'
+$publicCertificate = Join-Path $signingRoot 'zemeng5208-Test-Code-Signing.cer'
+$signerSubject = 'CN=zemeng5208 Test Builds, O=GitHub, OU=Authorized Testing and Secondary Development'
 
 function Assert-WithinRoot([string]$Path, [string]$Root, [string]$Label) {
   $fullPath = [System.IO.Path]::GetFullPath($Path).TrimEnd([System.IO.Path]::DirectorySeparatorChar)
@@ -139,6 +142,28 @@ function Write-HashSidecar([string]$Path) {
   return [pscustomobject]@{ Path = $Path; SHA256 = $hash; Size = (Get-Item -LiteralPath $Path).Length; Sidecar = $sidecar }
 }
 
+function Get-ProjectSigningCertificate {
+  $now = Get-Date
+  Get-ChildItem -Path Cert:\CurrentUser\My -CodeSigningCert -ErrorAction SilentlyContinue |
+    Where-Object {
+      $_.Subject -eq $signerSubject -and
+      $_.NotBefore -le $now -and $_.NotAfter -gt $now -and $_.HasPrivateKey
+    } |
+    Sort-Object NotAfter -Descending |
+    Select-Object -First 1
+}
+
+function Set-ProjectSignature([string]$Path, $Certificate) {
+  if ($null -eq $Certificate) {
+    throw "Formal V4 release signing certificate is unavailable: $signerSubject"
+  }
+  $signature = Set-AuthenticodeSignature -LiteralPath $Path -Certificate $Certificate -HashAlgorithm SHA256
+  if ($null -eq $signature.SignerCertificate) {
+    throw "Authenticode signing failed: $Path ($($signature.StatusMessage))"
+  }
+  Write-Host "Signed: $Path ($($signature.Status))"
+}
+
 Assert-WithinRoot -Path $outputRoot -Root $v4Root -Label 'Release output'
 foreach ($required in @($packScript, $packageRoot, $installerSource, $uninstallSource, $icon)) {
   if (-not (Test-Path -LiteralPath $required)) { throw "Required release input is missing: $required" }
@@ -151,6 +176,12 @@ try {
   Invoke-NpmScript 'test'
   Invoke-NpmScript 'pack:check'
   Invoke-NpmScript 'pack:win'
+
+  $signingCertificate = Get-ProjectSigningCertificate
+  if ($null -eq $signingCertificate) {
+    throw "Formal V4 release requires the project code-signing certificate: $signerSubject"
+  }
+  Set-ProjectSignature (Join-Path $packageRoot 'WinBridge-Recovery-V4.exe') $signingCertificate
 
   # Electron may leave a crash log beside the executable after a local smoke test.
   # It is machine-local diagnostic state and must not enter a public release.
@@ -210,6 +241,13 @@ try {
 
   $uninstallerPath = Join-Path $stageRoot 'payload\Uninstall WinBridge Recovery.exe'
   Compile-WindowsExe -SourcePath $versionedUninstallSource -OutputPath $uninstallerPath -IconPath $icon
+  Set-ProjectSignature $uninstallerPath $signingCertificate
+
+  if (-not (Test-Path -LiteralPath $publicCertificate -PathType Leaf)) {
+    throw "Public signing certificate is missing from the project: $publicCertificate"
+  }
+  Copy-Item -LiteralPath $publicCertificate -Destination (Join-Path $payloadRoot 'zemeng5208-Test-Code-Signing.cer') -Force
+  Copy-Item -LiteralPath $publicCertificate -Destination (Join-Path $portableRoot 'zemeng5208-Test-Code-Signing.cer') -Force
 
   [System.IO.Compression.ZipFile]::CreateFromDirectory(
     (Join-Path $stageRoot 'payload'),
@@ -218,6 +256,7 @@ try {
     $false)
 
   Compile-WindowsExe -SourcePath $versionedInstallerSource -OutputPath $installerPath -PayloadZipPath $payloadZip -IconPath $icon
+  Set-ProjectSignature $installerPath $signingCertificate
   [System.IO.Compression.ZipFile]::CreateFromDirectory(
     (Join-Path $stageRoot 'portable'),
     $portableZip,
@@ -230,8 +269,17 @@ try {
     product = 'WinBridge Recovery'
     version = '4.0.0'
     platform = 'windows-x64'
-    installer = [ordered]@{ file = [System.IO.Path]::GetFileName($installerPath); sha256 = $installerMeta.SHA256; size = $installerMeta.Size; signed = $false }
-    portable = [ordered]@{ file = [System.IO.Path]::GetFileName($portableZip); sha256 = $portableMeta.SHA256; size = $portableMeta.Size }
+    signing = [ordered]@{
+      type = 'Authenticode-SHA256'
+      trust = 'self-signed-test'
+      subject = $signingCertificate.Subject
+      issuer = $signingCertificate.Issuer
+      thumbprint = $signingCertificate.Thumbprint
+      certificate = 'zemeng5208-Test-Code-Signing.cer'
+      signedFiles = @('WinBridge-Recovery-Setup-v4.0.0.exe', 'WinBridge-Recovery-V4.exe', 'Uninstall WinBridge Recovery.exe')
+    }
+    installer = [ordered]@{ file = [System.IO.Path]::GetFileName($installerPath); sha256 = $installerMeta.SHA256; size = $installerMeta.Size; signed = $true; signatureTrust = 'self-signed-test' }
+    portable = [ordered]@{ file = [System.IO.Path]::GetFileName($portableZip); sha256 = $portableMeta.SHA256; size = $portableMeta.Size; payloadSigned = $true; signatureTrust = 'self-signed-test' }
     sourceCommit = (& git -C $repoRoot rev-parse HEAD).Trim()
     generatedUtc = [DateTime]::UtcNow.ToString('o')
   }

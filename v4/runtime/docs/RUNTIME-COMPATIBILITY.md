@@ -6,7 +6,7 @@
 - npm observed during the isolated build: `11.16.0`.
 - Electron is exactly locked to `43.4.0`.
 - `@electron/packager` is exactly locked to `20.3.0`.
-- Formal 4.0.0 distribution: Windows x64 installer and portable archive. The public installer is currently unsigned; SHA-256 sidecars are published beside both assets.
+- Formal 4.0.0 distribution: Windows x64 installer and portable archive. The installer and portable V4 executable use a self-signed test certificate rather than a publicly trusted certificate; SHA-256 sidecars are published beside both assets.
 
 Electron runs the main/preload code with its bundled Node/Chromium versions; the independent worker is forked with Electron's executable in Node mode in a packaged build. The host development Node is used only for dependency scripts and synthetic tests. No native addon is present, so there is no ABI rebuild requirement in this first runtime shell.
 

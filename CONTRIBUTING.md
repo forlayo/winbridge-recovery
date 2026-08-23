@@ -4,7 +4,7 @@ Thank you for helping improve WinBridge Recovery.
 
 WinBridge Recovery is an independent, non-commercial open-source project focused on Windows Codex Desktop plugin recovery and diagnostics. The earlier script-based predecessor is preserved at [codex-desktop-plugin-repair-safety-kit](https://github.com/zemeng5208/codex-desktop-plugin-repair-safety-kit), while active development, support, issues, and releases are maintained in this repository.
 
-The current formal public release is [WinBridge Recovery 4.0.0](https://github.com/zemeng5208/winbridge-recovery/releases/tag/v4.0.0). Use the exact release version in bug reports; the public installer is currently unsigned and must be verified with its SHA-256 sidecar.
+The current formal public release is [WinBridge Recovery 4.0.0](https://github.com/zemeng5208/winbridge-recovery/releases/tag/v4.0.0). Use the exact release version in bug reports; the public installer uses a self-signed test certificate and must be verified with its SHA-256 sidecar.
 
 WinBridge is a **plugin/runtime recovery tool**, not a Computer Use/Browser task-checkpoint system. The project intentionally does not attempt to restore the last clicked/viewed page, reconstruct action or screenshot history, recover hidden Agent/CUA execution state, or resume an interrupted task from the exact execution step. It also does not add background screen/key/activity recording as a partial substitute. See `SCOPE-AND-LIMITATIONS.md` before proposing work in this area.
 

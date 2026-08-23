@@ -4,7 +4,7 @@
 
 它用于检查和恢复 Browser、Chrome 与 Computer Use 三个桌面插件在更新或重启后出现的 marketplace、缓存、`latest` 指针、运行时路径和注册状态不一致问题。
 
-> 当前正式版：**[WinBridge Recovery 4.0.0（Latest Release）](https://github.com/zemeng5208/winbridge-recovery/releases/tag/v4.0.0)**。正式版提供 Windows x64 安装器和便携 ZIP；安装器当前未签名，Windows SmartScreen 可能显示未签名程序的常规警告。请始终使用 Release 页面上的 SHA-256 sidecar 校验下载文件。
+> 当前正式版：**[WinBridge Recovery 4.0.0（Latest Release）](https://github.com/zemeng5208/winbridge-recovery/releases/tag/v4.0.0)**。正式版提供 Windows x64 安装器和便携 ZIP；安装器及便携包主程序使用与 3.1.1 相同的自签名测试证书，不是 Windows 信任的公共证书，SmartScreen 仍可能显示未知发布者警告。请始终使用 Release 页面上的 SHA-256 sidecar 校验下载文件。
 
 > 本项目是学生独立开发的非商业社区测试项目，与 OpenAI 无隶属、赞助或认可关系。第三方名称仅用于说明兼容对象；项目不包含第三方品牌图标，也不重新分发官方应用或插件文件。
 
@@ -91,7 +91,7 @@ WinBridge Recovery 是早期公开脚本项目 **[Codex Desktop Plugin Repair Sa
 - [下载安装器](https://github.com/zemeng5208/winbridge-recovery/releases/download/v4.0.0/WinBridge-Recovery-Setup-v4.0.0.exe)
 - [安装器 SHA-256 sidecar](https://github.com/zemeng5208/winbridge-recovery/releases/download/v4.0.0/WinBridge-Recovery-Setup-v4.0.0.exe.sha256)
 
-安装器会创建独立的 `WinBridge-Recovery-V4` 安装、桌面快捷方式和当前用户卸载注册，不覆盖旧的 3.x 安装。正式安装器目前未签名，SmartScreen 警告是预期现象；运行前请核对 `8D49B10F0ADB0E01F21A1D8B0B03D477AA58F3466B08BFD964A21F13B18ECF77`。
+安装器会创建独立的 `WinBridge-Recovery-V4` 安装、桌面快捷方式和当前用户卸载注册，不覆盖旧的 3.x 安装。安装器带有 Authenticode-SHA256 自签名测试证书 `CN=zemeng5208 Test Builds, O=GitHub, OU=Authorized Testing and Secondary Development`，但该证书不受 Windows 公共信任根信任；运行前请核对 `BA21C5369AE5BFA5A0236FF112A6FFCAE37EFB36FAA3E9E62E5EE3213A3B8D04`。
 
 ### 免安装便携 ZIP
 
@@ -106,7 +106,7 @@ WinBridge-Recovery-V4-win32-x64\WinBridge-Recovery-V4.exe
 
 便携包不会安装系统服务或创建卸载注册项，也不包含官方 Desktop 或插件文件。请保持解压后的目录结构完整，不要直接在 ZIP 内运行脚本。首次启动会先显示只读诊断/预检界面；普通演示启动默认不会执行真实修复。
 
-无论使用安装器还是便携 ZIP，运行前都应核对 Release 页面公布的 SHA-256。正式版安装器未签名，不要把 SmartScreen 警告当成签名通过的证据。
+无论使用安装器还是便携 ZIP，运行前都应核对 Release 页面公布的 SHA-256。自签名只证明文件由同一测试证书签出，不代表 Windows 已信任该发布者；不要把 SmartScreen 状态当成公共证书信任证明。
 
 ## 更新与公开动态
 
@@ -142,7 +142,7 @@ npm run verify:snapshot
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Build-Release.ps1
 ```
 
-构建输出应通过脚本中的前端、测试和打包校验；公开安装器当前未签名，运行前仍必须核对 Release 页面公布的 SHA-256。
+构建输出应通过脚本中的前端、测试和打包校验；公开安装器使用自签名测试证书，运行前仍必须核对 Release 页面公布的 SHA-256。
 
 ## 卸载
 
