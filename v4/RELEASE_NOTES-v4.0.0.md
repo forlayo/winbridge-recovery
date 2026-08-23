@@ -31,8 +31,8 @@ The ordinary desktop demonstration build does not include the `--enable-real-rep
 - Windows x64 installer: `WinBridge-Recovery-Setup-v4.0.0.exe`.
 - Windows x64 portable archive: `WinBridge-Recovery-v4.0.0-portable-win-x64.zip`.
 - SHA-256 sidecars are published beside both artifacts.
-- Installer SHA-256: `6AA746380B2501CD6734D42CD37E4D7ABFABD47D82AD12A47FD8296A7A8C1F6A`.
-- Portable ZIP SHA-256: `05F575C7DD21BE7150069DD1A3849A9B30E2E32EC83F51F190E1332ED241AC8A`.
+- Installer SHA-256: `8D49B10F0ADB0E01F21A1D8B0B03D477AA58F3466B08BFD964A21F13B18ECF77`.
+- Portable ZIP SHA-256: `D0EFB50EB104306AA00185668255D0B44BFECE430C4B02699827DE1E7B46B601`.
 - The installer is self-contained and creates a separate `WinBridge-Recovery-V4` installation, desktop shortcut, and per-user uninstall registration; it does not overwrite the legacy 3.x installation.
 - The public installer is currently unsigned; Windows SmartScreen may show the normal warning for an unsigned first-party build.
 
