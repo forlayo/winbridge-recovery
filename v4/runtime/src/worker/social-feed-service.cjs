@@ -17,11 +17,14 @@ const {
 const { MAX_POST_TEXT, SocialFeedCache } = require('./social-cache.cjs');
 
 const MAX_SOURCE_RESPONSE_BYTES = 2 * 1024 * 1024;
+const MAX_AVATAR_RESPONSE_BYTES = 512 * 1024;
 const MAX_TRANSLATION_RESPONSE_BYTES = 256 * 1024;
 const MAX_TRANSLATION_OUTPUT = 4000;
 const MAX_SOURCE_ENTRIES = 64;
 const PER_REQUEST_TIMEOUT_MS = 9000;
 const JINA_TIMEOUT_MS = 12000;
+const AVATAR_TIMEOUT_MS = 9000;
+const AVATAR_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const TRANSLATION_TIMEOUT_MS = 12000;
 const TOTAL_FEED_TIMEOUT_MS = 18000;
 
@@ -153,7 +156,7 @@ function parseRss(accountId, xml, source) {
   for (const match of blocks) {
     const block = match[2];
     const text = extractXmlValue(block, ['description', 'content:encoded', 'summary', 'title']);
-    const rawTime = extractXmlValue(block, ['pubDate', 'published', 'updated']);
+    const rawTime = extractXmlValue(block, ['pubDate', 'published', 'updated', 'dc:date', 'date', 'atom:updated']);
     const parsedTime = parseRssPublishedAt(rawTime);
     const post = makePost(accountId, {
       text,
@@ -165,6 +168,43 @@ function parseRss(accountId, xml, source) {
     if (post) posts.push(post);
   }
   return posts;
+}
+
+function extractHtmlMetaContent(block, property) {
+  const escaped = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const patterns = [
+    new RegExp(`<meta\\b[^>]*\\bitemProp="${escaped}"[^>]*\\bcontent="([^"]*)"[^>]*>`, 'i'),
+    new RegExp(`<meta\\b[^>]*\\bitemProp='${escaped}'[^>]*\\bcontent='([^']*)'[^>]*>`, 'i'),
+    new RegExp(`<meta\\b[^>]*\\bcontent="([^"]*)"[^>]*\\bitemProp="${escaped}"[^>]*>`, 'i'),
+    new RegExp(`<meta\\b[^>]*\\bcontent='([^']*)'[^>]*\\bitemProp='${escaped}'[^>]*>`, 'i')
+  ];
+  for (const pattern of patterns) {
+    const match = pattern.exec(block);
+    if (match) return decodeEntities(match[1]).trim();
+  }
+  return '';
+}
+
+function parseXProfileHtml(accountId, html) {
+  if (typeof html !== 'string' || html.length < 1) return [];
+  const posts = [];
+  const blocks = [...html.matchAll(/<article\b[^>]*data-tweet-id=["'][^"']+["'][\s\S]*?<\/article>/gi)].slice(0, MAX_SOURCE_ENTRIES);
+  for (const match of blocks) {
+    const block = match[0];
+    const link = canonicalizeSourcePostLink(extractHtmlMetaContent(block, 'url'), accountId);
+    if (!link || !/\/status\/\d{5,32}$/i.test(link)) continue;
+    const rawTime = extractHtmlMetaContent(block, 'datePublished') || extractHtmlMetaContent(block, 'dateCreated');
+    const parsedTime = parseRssPublishedAt(rawTime);
+    const post = makePost(accountId, {
+      text: extractHtmlMetaContent(block, 'text'),
+      link,
+      publishedAt: parsedTime,
+      timeUnconfirmed: !parsedTime,
+      source: 'x-profile'
+    });
+    if (post) posts.push(post);
+  }
+  return deduplicate(posts);
 }
 
 function parseJina(accountId, markdown) {
@@ -235,6 +275,22 @@ function readBrokerResponseBounded(value, maximum, acceptedContentTypes) {
   return body.toString('utf8').replace(/^\uFEFF/, '');
 }
 
+function readBrokerBinaryBounded(value, maximum, acceptedContentTypes) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new SocialRequestError('invalid-response');
+  if (!Number.isInteger(value.status) || value.status < 200 || value.status >= 300) throw new SocialRequestError('http-status');
+  if (typeof value.contentType !== 'string' || !acceptedContentTypes.includes(value.contentType)) throw new SocialRequestError('content-type-rejected');
+  if (!Buffer.isBuffer(value.body) && !(value.body instanceof Uint8Array)) throw new SocialRequestError('invalid-response');
+  const body = Buffer.from(value.body);
+  if (body.length < 1 || body.length > maximum) throw new SocialRequestError('response-too-large');
+  return { contentType: value.contentType, body };
+}
+
+function avatarDataUrl(response) {
+  const { contentType, body } = response;
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(contentType)) throw new SocialRequestError('content-type-rejected');
+  return `data:${contentType};base64,${body.toString('base64')}`;
+}
+
 class SocialFeedService {
   constructor({ dataRoot, settingsProvider, networkBroker, now = () => Date.now(), onLog = () => {}, timeouts = {} }) {
     if (typeof networkBroker !== 'function') throw new TypeError('A fixed-operation network broker is required');
@@ -246,6 +302,7 @@ class SocialFeedService {
     this.timeouts = {
       request: timeouts.request || PER_REQUEST_TIMEOUT_MS,
       jina: timeouts.jina || JINA_TIMEOUT_MS,
+      avatar: timeouts.avatar || AVATAR_TIMEOUT_MS,
       translation: timeouts.translation || TRANSLATION_TIMEOUT_MS,
       total: timeouts.total || TOTAL_FEED_TIMEOUT_MS
     };
@@ -286,7 +343,7 @@ class SocialFeedService {
         const allOrdered = orderAndFilter(onlinePosts, { maxPosts: 24, hours: effective.hours, now: filteredAt });
         if (allOrdered.length) {
           await this.cache.write(allOrdered, new Date(filteredAt).toISOString()).catch(() => this.log('cache', 'write-failed'));
-          const posts = allOrdered.slice(0, effective.maxPosts);
+          const posts = await this.hydrateAvatars(allOrdered.slice(0, effective.maxPosts), totalController.signal);
           await this.register(posts);
           const returnedAccounts = new Set(allOrdered.map((post) => post.account));
           const failedAccounts = accountResults.filter((result) => !returnedAccounts.has(result.account)).map((result) => result.account);
@@ -313,7 +370,7 @@ class SocialFeedService {
   }
 
   async fetchAccount(accountId, effective, totalSignal) {
-    const sources = ['xxu-rss', 'rsshub'];
+    const sources = ['x-profile', 'xxu-rss', 'rsshub'];
     if (effective.useJinaFallback) sources.push('jina');
     for (const source of sources) {
       if (totalSignal.aborted || this.shuttingDown) break;
@@ -323,10 +380,12 @@ class SocialFeedService {
           maximum: MAX_SOURCE_RESPONSE_BYTES,
           acceptedContentTypes: source === 'jina'
             ? ['text/plain', 'text/markdown']
+            : source === 'x-profile'
+              ? ['text/html', 'application/xhtml+xml', 'text/plain']
             : ['application/rss+xml', 'application/atom+xml', 'application/xml', 'text/xml', 'text/plain'],
           totalSignal
         });
-        const parsedPosts = source === 'jina' ? parseJina(accountId, text) : parseRss(accountId, text, source);
+        const parsedPosts = source === 'jina' ? parseJina(accountId, text) : source === 'x-profile' ? parseXProfileHtml(accountId, text) : parseRss(accountId, text, source);
         const posts = orderAndFilter(parsedPosts, { maxPosts: 10, hours: effective.hours, now: this.now() });
         if (posts.length) return { account: accountId, source, posts };
         this.log(accountId, `${source}:no-trusted-current-posts`);
@@ -359,6 +418,50 @@ class SocialFeedService {
     }
   }
 
+  async fetchAvatar(accountId, totalSignal) {
+    this.assertRunning();
+    if (totalSignal?.aborted) throw totalSignal.reason || new SocialRequestError('total-timeout');
+    const controller = this.trackController(new AbortController());
+    const forwardAbort = () => controller.abort(totalSignal.reason || new SocialRequestError('total-timeout'));
+    totalSignal?.addEventListener('abort', forwardAbort, { once: true });
+    const timer = setTimeout(() => controller.abort(new SocialRequestError('timeout')), this.timeouts.avatar);
+    timer.unref?.();
+    try {
+      const response = await this.networkBroker(SOCIAL_BROKER_OPERATIONS.FETCH_AVATAR, { account: accountId }, { signal: controller.signal, timeoutMs: this.timeouts.avatar + 3000 });
+      return avatarDataUrl(readBrokerBinaryBounded(response, MAX_AVATAR_RESPONSE_BYTES, ['image/jpeg', 'image/png', 'image/webp']));
+    } catch (error) {
+      if (this.shuttingDown) throw new Error('Runtime shutdown is in progress');
+      if (controller.signal.aborted) throw controller.signal.reason || new SocialRequestError('timeout');
+      throw error;
+    } finally {
+      clearTimeout(timer);
+      totalSignal?.removeEventListener('abort', forwardAbort);
+      this.untrackController(controller);
+    }
+  }
+
+  async hydrateAvatars(posts, totalSignal) {
+    if (!posts.length) return posts;
+    const cached = await this.cache.readAvatars().catch(() => ({}));
+    const next = { ...cached };
+    let changed = false;
+    const accounts = [...new Set(posts.map((post) => post.account))];
+    await Promise.all(accounts.map(async (accountId) => {
+      const current = next[accountId];
+      const age = current?.fetchedAt ? this.now() - Date.parse(current.fetchedAt) : Number.POSITIVE_INFINITY;
+      if (current?.dataUrl && Number.isFinite(age) && age >= 0 && age < AVATAR_CACHE_TTL_MS) return;
+      try {
+        const dataUrl = await this.fetchAvatar(accountId, totalSignal);
+        next[accountId] = { dataUrl, fetchedAt: new Date(this.now()).toISOString() };
+        changed = true;
+      } catch (error) {
+        this.log(accountId, `avatar:${failureCode(error)}`);
+      }
+    }));
+    if (changed) await this.cache.writeAvatars(next).catch(() => this.log('cache', 'avatar-write-failed'));
+    return posts.map((post) => ({ ...post, avatarDataUrl: next[post.account]?.dataUrl || null }));
+  }
+
   async cachedFallback(effective) {
     this.assertRunning();
     const cached = await this.cache.read();
@@ -366,7 +469,7 @@ class SocialFeedService {
     if (!cached) return this.unavailable('temporarily-unavailable', effective.locale);
     const selectedAccounts = new Set(effective.accounts);
     const candidates = cached.posts.filter((post) => selectedAccounts.has(post.account));
-    const posts = orderAndFilter(candidates, { maxPosts: effective.maxPosts, hours: effective.hours, now: this.now() });
+    const posts = await this.hydrateAvatars(orderAndFilter(candidates, { maxPosts: effective.maxPosts, hours: effective.hours, now: this.now() }));
     if (!posts.length) return this.unavailable('temporarily-unavailable', effective.locale);
     await this.register(posts);
     return {
@@ -464,6 +567,7 @@ class SocialFeedService {
 
 module.exports = {
   MAX_SOURCE_RESPONSE_BYTES,
+  MAX_AVATAR_RESPONSE_BYTES,
   MAX_TRANSLATION_RESPONSE_BYTES,
   MAX_SOURCE_ENTRIES,
   SocialRequestError,
@@ -471,9 +575,11 @@ module.exports = {
   cleanText,
   parseRss,
   parseRssPublishedAt,
+  parseXProfileHtml,
   parseJina,
   makePost,
   orderAndFilter,
   readBrokerResponseBounded,
+  readBrokerBinaryBounded,
   SocialFeedService
 };

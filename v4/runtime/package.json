@@ -12,7 +12,8 @@
     "verify:frontend": "node scripts/verify-frontend.cjs",
     "verify:snapshot": "node scripts/verify-engine-snapshot.cjs",
     "pack:check": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\Pack-Windows.ps1 -ValidateOnly",
-    "pack:win": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\Pack-Windows.ps1"
+    "pack:win": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\Pack-Windows.ps1",
+    "release:win": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\Build-Release.ps1"
   },
   "devDependencies": {
     "@electron/packager": "20.3.0",

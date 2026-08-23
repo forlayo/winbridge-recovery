@@ -84,13 +84,17 @@ test('Worker social networking crosses only the private fixed-operation broker R
       calls.push({ operation, payload });
       if (operation === SOCIAL_BROKER_OPERATIONS.REGISTER_POSTS) return { registered: payload.posts.length };
       if (operation === SOCIAL_BROKER_OPERATIONS.FETCH_SOURCE) {
-        assert.deepEqual(payload, { account: 'openai', source: 'xxu-rss' });
+        assert.deepEqual(payload, { account: 'openai', source: 'x-profile' });
         const publishedAt = new Date().toISOString();
         return {
           status: 200,
-          contentType: 'application/rss+xml',
-          body: Buffer.from(`<rss><channel><item><description>Synthetic broker IPC post</description><link>https://x.com/OpenAI/status/1234567890123456789</link><pubDate>${publishedAt}</pubDate></item></channel></rss>`)
+          contentType: 'text/html',
+          body: Buffer.from(`<article data-tweet-id="1234567890123456789"><meta content="${publishedAt}" itemProp="datePublished"/><meta content="https://x.com/OpenAI/status/1234567890123456789" itemProp="url"/><meta content="Synthetic broker IPC post" itemProp="text"/></article>`)
         };
+      }
+      if (operation === SOCIAL_BROKER_OPERATIONS.FETCH_AVATAR) {
+        assert.deepEqual(payload, { account: 'openai' });
+        return { status: 200, contentType: 'image/jpeg', body: Buffer.from([0xff, 0xd8, 0xff, 0xd9]) };
       }
       throw new Error('Unexpected broker operation');
     },
@@ -110,6 +114,7 @@ test('Worker social networking crosses only the private fixed-operation broker R
   assert.deepEqual(calls.map((call) => call.operation), [
     SOCIAL_BROKER_OPERATIONS.REGISTER_POSTS,
     SOCIAL_BROKER_OPERATIONS.FETCH_SOURCE,
+    SOCIAL_BROKER_OPERATIONS.FETCH_AVATAR,
     SOCIAL_BROKER_OPERATIONS.REGISTER_POSTS
   ]);
   assert.equal(calls.some((call) => 'url' in call.payload), false);

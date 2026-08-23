@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { EngineAdapter, loadCoreDiagnosisReport } = require('../src/worker/engine-adapter.cjs');
+const { EngineAdapter, loadCoreDiagnosisReport, decodePowerShellLine } = require('../src/worker/engine-adapter.cjs');
 const { makeIssue } = require('../src/worker/diagnostic-policy.cjs');
 
 const projectRoot = path.resolve(__dirname, '..');
@@ -14,6 +14,11 @@ test.after(async () => {
   const resolved = path.resolve(testRoot);
   assert.ok(resolved.startsWith(path.join(projectRoot, '.test-artifacts') + path.sep));
   await fs.rm(resolved, { recursive: true, force: true });
+});
+
+test('PowerShell output preserves UTF-8 and Windows Chinese code-page text', () => {
+  assert.equal(decodePowerShellLine(Buffer.from('只读诊断已开始', 'utf8')), '只读诊断已开始');
+  assert.equal(decodePowerShellLine(Buffer.from([0xD6, 0xD0, 0xCE, 0xC4])), '中文');
 });
 
 test('adapter verifies frozen hashes and prepares only an isolated session copy', async () => {

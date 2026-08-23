@@ -143,12 +143,12 @@ export function createRuntimeBridgeMock() {
       calls.push(["getSocialFeed", options]);
       const now = Date.now();
       const posts = [
-        { postId: "mock-social-tibo-1", account: "tibo", displayName: "Tibo", handle: "@tibo", createdAt: new Date(now - 42 * 60 * 1000).toISOString(), text: "Building tools that keep recovery decisions visible and reversible.", avatarDataUrl: null },
-        { postId: "mock-social-openai-1", account: "openai", displayName: "OpenAI", handle: "@OpenAI", createdAt: new Date(now - 5 * 60 * 60 * 1000).toISOString(), text: "A short product update for the local mock feed. No remote content was loaded.", avatarDataUrl: null },
-        { postId: "mock-social-chatgpt-1", account: "chatgpt", displayName: "ChatGPT", handle: "@ChatGPTapp", createdAt: new Date(now - 19 * 60 * 60 * 1000).toISOString(), text: "This post is generated locally to exercise the read-only social feed UI.", avatarDataUrl: null },
+         { postId: "mock-social-tibo-1", account: "tibo", displayName: "Tibo", handle: "@thsottiaux", createdAt: new Date(now - 42 * 60 * 1000).toISOString(), publishedAt: new Date(now - 42 * 60 * 1000).toISOString(), source: "x-profile", text: "Building tools that keep recovery decisions visible and reversible.<br><span>Markup is stripped by the feed UI.</span>", avatarDataUrl: null },
+         { postId: "mock-social-openai-1", account: "openai", displayName: "OpenAI", handle: "@OpenAI", createdAt: new Date(now - 5 * 60 * 60 * 1000).toISOString(), publishedAt: new Date(now - 5 * 60 * 60 * 1000).toISOString(), source: "xxu-rss", text: "A short product update for the local mock feed. No remote content was loaded.", avatarDataUrl: null },
+         { postId: "mock-social-chatgpt-1", account: "chatgpt", displayName: "ChatGPT", handle: "@ChatGPT", createdAt: new Date(now - 19 * 60 * 60 * 1000).toISOString(), publishedAt: new Date(now - 19 * 60 * 60 * 1000).toISOString(), source: "rsshub", text: "This post is generated locally to exercise the read-only social feed UI.", avatarDataUrl: null },
       ];
       const enabled = new Set(Array.isArray(options?.accounts) ? options.accounts : []);
-      return { available: true, reason: null, degraded: false, cacheAgeSeconds: 0, posts: posts.filter((post) => enabled.has(post.account)).slice(0, Math.max(1, Math.min(10, Number(options?.maxPosts) || 4))) };
+       return { available: true, reason: null, degraded: false, fetchedAt: new Date(now).toISOString(), cacheAgeSeconds: 0, posts: posts.filter((post) => enabled.has(post.account)).slice(0, Math.max(1, Math.min(10, Number(options?.maxPosts) || 4))) };
     },
     async translateSocialPost(request) {
       calls.push(["translateSocialPost", request]);
@@ -156,7 +156,7 @@ export function createRuntimeBridgeMock() {
       if (keys.join("|") !== "postId|targetLocale") throw new Error("Mock translateSocialPost requires only postId and targetLocale.");
       if (typeof request.postId !== "string" || !request.postId) throw new Error("Mock translateSocialPost requires postId.");
       if (!["zh", "en", "fr", "es", "ru", "ar"].includes(request.targetLocale)) throw new Error("Mock translateSocialPost targetLocale is invalid.");
-      return { available: true, postId: request.postId, targetLocale: request.targetLocale, text: `[${request.targetLocale}] 本地模拟翻译内容` };
+      return { available: true, postId: request.postId, targetLocale: request.targetLocale, text: `[${request.targetLocale}] 本地模拟翻译内容<br><em>译文也经过标签清洗。</em>` };
     },
     async openSocialPost(request) { calls.push(["openSocialPost", request]); return { opened: true }; },
     onEngineEvent(listener) { engineListeners.add(listener); return () => engineListeners.delete(listener); },

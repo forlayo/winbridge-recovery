@@ -64,6 +64,24 @@ test('broker constructs fixed URLs and transport options from structured allowli
   broker.shutdown();
 });
 
+test('broker resolves the official X profile avatar through a fixed profile and image allowlist', async () => {
+  const calls = [];
+  const profileHtml = '<meta content="https://pbs.twimg.com/profile_images/1885410181409820672/ztsaR0JW_400x400.jpg" itemProp="image"/>';
+  const broker = new SocialNetworkBroker({ fetchImpl: async (url, options) => {
+    calls.push({ url, options });
+    return calls.length === 1 ? fakeResponse(profileHtml, 'text/html') : fakeResponse(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), 'image/jpeg');
+  } });
+  const result = await broker.handle('host-avatar-000001', SOCIAL_BROKER_OPERATIONS.FETCH_AVATAR, { account: 'openai' });
+  assert.equal(result.contentType, 'image/jpeg');
+  assert.deepEqual([...result.body], [0xff, 0xd8, 0xff, 0xd9]);
+  assert.deepEqual(calls.map((call) => call.url), [
+    'https://x.com/OpenAI',
+    'https://pbs.twimg.com/profile_images/1885410181409820672/ztsaR0JW_400x400.jpg'
+  ]);
+  assert.equal(calls.every((call) => call.options.credentials === 'omit' && call.options.redirect === 'manual' && call.options.cache === 'no-store'), true);
+  broker.shutdown();
+});
+
 test('translation URL is rebuilt from the registered post binding and fixed target locale', async () => {
   const calls = [];
   const post = boundPost();

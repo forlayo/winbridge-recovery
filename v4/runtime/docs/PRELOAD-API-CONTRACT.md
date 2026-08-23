@@ -42,13 +42,13 @@ Return value conforms to `schemas/social-feed.schema.json`:
     link: string;
     publishedAt: string; // canonical YYYY-MM-DDTHH:mm:ss.sssZ
     timeUnconfirmed: false;
-    source: "xxu-rss" | "rsshub" | "jina";
+    source: "x-profile" | "xxu-rss" | "rsshub" | "jina";
     avatarDataUrl?: string;
   }>;
 }
 ```
 
-`available=false, reason="disabled"` is a normal settings result. `available=false, reason="temporarily-unavailable"` is the non-blocking no-cache fallback. A cached result uses `degraded=true`, `reason="cached-after-online-failure"`, and reports `cacheAgeSeconds`, but it is filtered through the same timestamp boundary again before return. Zero, one, or two qualifying posts are valid results. Jina records without a trustworthy publication timestamp yield zero posts. Avatar is optional and is not fetched by the first Runtime implementation.
+`available=false, reason="disabled"` is a normal settings result. `available=false, reason="temporarily-unavailable"` is the non-blocking no-cache fallback. A cached result uses `degraded=true`, `reason="cached-after-online-failure"`, and reports `cacheAgeSeconds`, but it is filtered through the same timestamp boundary again before return. Zero, one, or two qualifying posts are valid results. Jina records without a trustworthy publication timestamp yield zero posts. `x-profile` is the fixed official X profile HTML source and is tried before the read-only RSS mirrors. The runtime fetches the official profile avatar in the main process, converts it to a bounded `data:` URL, and stores it in the application-owned social avatar cache; the renderer never fetches a remote image. A cached avatar may be retained for up to six hours before a bounded refresh is attempted.
 
 ### `translateSocialPost(request)`
 

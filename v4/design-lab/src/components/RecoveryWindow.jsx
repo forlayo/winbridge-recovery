@@ -10,6 +10,7 @@ import OfficialPluginIcon from "./OfficialPluginIcon.jsx";
 import { MenuGlyph } from "./BrandIcon.jsx";
 import { createRuntimeController } from "../lib/runtimeController.js";
 import GameCenter from "./games/GameCenter.jsx";
+import winbridgeMark from "../assets/WinBridge.png";
 
 const activeStageByFlow = {
   Diagnosing: 0,
@@ -290,14 +291,17 @@ function localizeRepairError(message) {
 
 function DiagnosisBrief({ flowState, report, runtimeMode }) {
   const summary = issueSummary(report);
-  const reportTitle = summary.first ? `${summary.first.category} · 已生成结构化证据` : runtimeMode ? "等待本机只读诊断" : "WB-CHR-011 · Chrome 桥接偏差";
+  const waitingForDiagnosis = runtimeMode && !report && !flowState;
+  const reportTitle = summary.first
+    ? `${summary.first.category} · 已生成结构化证据`
+    : waitingForDiagnosis ? "准备开始只读诊断" : runtimeMode ? "等待本机只读诊断" : "WB-CHR-011 · Chrome 桥接偏差";
   return (
     <section className="diagnosis-brief" aria-label="诊断决策信息">
-      <header><div><span className="brief-kicker">当前报告</span><strong>{reportTitle}</strong></div><b>{flowState}</b></header>
+      <header><div><span className="brief-kicker">当前报告</span><strong>{reportTitle}</strong></div><b>{flowState || (waitingForDiagnosis ? "等待开始" : "")}</b></header>
       <div className="brief-facts">
-        <article><span>发现</span><strong>{report ? `${summary.issues.length} 项` : runtimeMode ? "尚未诊断" : "1 项偏差"}</strong><p>{summary.first?.evidence?.[0] || (runtimeMode ? "点击只读诊断获取本机证据" : "本机桥接版本与目标清单不一致")}</p></article>
+        <article><span>发现</span><strong>{report ? `${summary.issues.length} 项` : runtimeMode ? (waitingForDiagnosis ? "尚未开始" : "尚未诊断") : "1 项偏差"}</strong><p>{summary.first?.evidence?.[0] || (runtimeMode ? (waitingForDiagnosis ? "请点击下方“只读诊断”开始收集本机证据" : "点击只读诊断获取本机证据") : "本机桥接版本与目标清单不一致")}</p></article>
         <article><span>影响</span><strong>{summary.first?.risk ? `${summary.first.risk} 风险` : "等待判定"}</strong><p>{summary.first?.impact || "Browser、Chrome、Computer Use 分别判定"}</p></article>
-        <article><span>拟动作</span><strong>{summary.repairable.length ? `${summary.repairable.length} 项可建议修复` : "无自动写入"}</strong><p>{summary.first?.plannedActions?.join(" → ") || "先报告，再由用户决定"}</p></article>
+        <article><span>拟动作</span><strong>{summary.repairable.length ? `${summary.repairable.length} 项可建议修复` : "无自动写入"}</strong><p>{summary.first?.plannedActions?.join(" → ") || (waitingForDiagnosis ? "不会执行任何写入" : "先报告，再由用户决定")}</p></article>
       </div>
     </section>
   );
@@ -305,16 +309,17 @@ function DiagnosisBrief({ flowState, report, runtimeMode }) {
 
 function DecisionSummary({ flowState, actualProgress, indeterminate, report, runtimeMode }) {
   const summary = issueSummary(report);
+  const waitingForDiagnosis = runtimeMode && !report && !flowState;
   return (
     <aside className="decision-summary" aria-label="诊断决策摘要">
-      <header><span>诊断决策摘要</span><b>{flowState === "AwaitingDecision" ? "等待用户" : runtimeMode ? "本机状态" : "只读演示"}</b></header>
+      <header><span>诊断决策摘要</span><b>{waitingForDiagnosis ? "等待开始" : flowState === "AwaitingDecision" ? "等待用户" : runtimeMode ? "本机状态" : "只读演示"}</b></header>
       <dl>
-        <div><dt>问题</dt><dd>{report ? `${summary.issues.length} 项` : "待诊断"}</dd></div>
-        <div><dt>最高风险</dt><dd className="semantic-warn">{summary.highestRisk}</dd></div>
+        <div><dt>问题</dt><dd>{report ? `${summary.issues.length} 项` : waitingForDiagnosis ? "尚未开始" : "待诊断"}</dd></div>
+        <div><dt>最高风险</dt><dd className="semantic-warn">{waitingForDiagnosis ? "待诊断" : summary.highestRisk}</dd></div>
         <div><dt>拟写入范围</dt><dd>{summary.writeScopeCount} 处</dd></div>
         <div><dt>可信进度</dt><dd>{actualProgress}%</dd></div>
       </dl>
-      <p>{indeterminate ? "长步骤暂无精确百分比，保持最后可信值。" : summary.repairable.length ? "存在允许建议修复的类别；仍需用户在报告中明确确认。" : "没有允许自动修复的类别，可直接打开 GPT 或查看日志。"}</p>
+      <p>{waitingForDiagnosis ? "请先运行只读诊断；此阶段不会写入插件。" : indeterminate ? "长步骤暂无精确百分比，保持最后可信值。" : summary.repairable.length ? "存在允许建议修复的类别；仍需用户在报告中明确确认。" : "没有允许自动修复的类别，可直接打开 GPT 或查看日志。"}</p>
     </aside>
   );
 }
@@ -380,9 +385,25 @@ function PluginPanel({ pluginColors = ["#4de0a2", "#ffc05b", "#58b7ff"], visibil
 }
 
 const SOCIAL_ACCOUNTS = Object.freeze({
-  tibo: { displayName: "Tibo", handle: "@tibo" },
+  tibo: { displayName: "Tibo", handle: "@thsottiaux" },
   openai: { displayName: "OpenAI", handle: "@OpenAI" },
-  chatgpt: { displayName: "ChatGPT", handle: "@ChatGPTapp" },
+  chatgpt: { displayName: "ChatGPT", handle: "@ChatGPT" },
+});
+
+const SOCIAL_SOURCE_LABELS = Object.freeze({
+  "x-profile": "X 官方主页",
+  "xxu-rss": "XXU RSS",
+  rsshub: "RSSHub",
+  jina: "Jina 只读镜像",
+  mock: "本地 mock",
+  concept: "本地 mock",
+});
+
+const SOCIAL_AVATAR_CACHE_KEY = "winbridge.social-avatar-cache.v1";
+const SOCIAL_LOCAL_AVATARS = Object.freeze({
+  tibo: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agc3RvcC1jb2xvcj0iIzE5YzdhNSIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzEyN2ZiZSIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgcng9IjMyIiBmaWxsPSJ1cmwoI2cpIi8+PGNpcmNsZSBjeD0iMzIiIGN5PSIyNSIgcj0iMTEiIGZpbGw9IiNmNGZiZmYiLz48cGF0aCBkPSJNMTMgNTZjMi0xMiAxMC0xOCAxOS0xOHMxNyA2IDE5IDE4IiBmaWxsPSIjZjRmYmZmIi8+PC9zdmc+",
+  openai: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agc3RvcC1jb2xvcj0iI2YwYTM1YiIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iI2M5NWI4YyIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgcng9IjMyIiBmaWxsPSJ1cmwoI2cpIi8+PGNpcmNsZSBjeD0iMzIiIGN5PSIyNSIgcj0iMTEiIGZpbGw9IiNmZmY4ZjMiLz48cGF0aCBkPSJNMTMgNTZjMi0xMiAxMC0xOCAxOS0xOHMxNyA2IDE5IDE4IiBmaWxsPSIjZmZmOGYzIi8+PC9zdmc+",
+  chatgpt: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agc3RvcC1jb2xvcj0iIzhhNzJlZSIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzRlNWJkNyIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgcng9IjMyIiBmaWxsPSJ1cmwoI2cpIi8+PGNpcmNsZSBjeD0iMzIiIGN5PSIyNSIgcj0iMTEiIGZpbGw9IiNmN2Y1ZmYiLz48cGF0aCBkPSJNMTMgNTZjMi0xMiAxMC0xOCAxOS0xOHMxNyA2IDE5IDE4IiBmaWxsPSIjZjdmNWZmIi8+PC9zdmc+",
 });
 
 const CONCEPT_SOCIAL_POSTS = Object.freeze([
@@ -392,9 +413,53 @@ const CONCEPT_SOCIAL_POSTS = Object.freeze([
   { postId: "concept-tibo-2", account: "tibo", ageHours: 34, text: "诊断先行，修复动作始终交给用户决定。" },
 ]);
 
-const safeAvatarDataUrl = (value) => typeof value === "string" && /^data:image\/(png|webp|jpeg);base64,/.test(value) ? value : null;
+const safeAvatarDataUrl = (value) => typeof value === "string"
+  && value.length <= 200000
+  && /^data:image\/(png|webp|jpeg|svg\+xml);base64,[A-Za-z0-9+/=]+$/.test(value)
+  ? value
+  : null;
 
-function normalizeSocialPost(post, index) {
+function readAvatarCache() {
+  if (typeof window === "undefined") return {};
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(SOCIAL_AVATAR_CACHE_KEY) || "{}");
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    return Object.fromEntries(Object.entries(parsed)
+      .filter(([account, value]) => Object.hasOwn(SOCIAL_ACCOUNTS, account) && safeAvatarDataUrl(value))
+      .map(([account, value]) => [account, safeAvatarDataUrl(value)]));
+  } catch {
+    return {};
+  }
+}
+
+function writeAvatarCache(avatars) {
+  if (typeof window === "undefined") return;
+  try { window.localStorage.setItem(SOCIAL_AVATAR_CACHE_KEY, JSON.stringify(avatars)); } catch { /* Cache is optional. */ }
+}
+
+function decodeSocialEntities(value) {
+  const named = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+  return String(value || "").replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos|nbsp);/gi, (_all, entity) => {
+    if (entity[0] === "#") {
+      const number = entity[1].toLowerCase() === "x" ? Number.parseInt(entity.slice(2), 16) : Number.parseInt(entity.slice(1), 10);
+      return Number.isInteger(number) && number > 0 && number <= 0x10ffff ? String.fromCodePoint(number) : "";
+    }
+    return named[entity.toLowerCase()] || "";
+  });
+}
+
+function stripSocialMarkup(value, maximum = 4000) {
+  let text = String(value || "").replace(/<!\[CDATA\[([\s\S]*?)\]\]>/gi, "$1");
+  text = text.replace(/<script\b[\s\S]*?<\/script>/gi, " ").replace(/<style\b[\s\S]*?<\/style>/gi, " ");
+  text = text.replace(/<br\s*\/?>/gi, "\n").replace(/<\/(?:p|div|li|tr|h[1-6])>/gi, "\n").replace(/<[^>]+>/g, " ");
+  text = decodeSocialEntities(text);
+  // Some feeds entity-encode the complete tag. Decode once, then remove that
+  // second-layer markup as well so raw frontend tags never reach the page.
+  text = text.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, " ");
+  return text.replace(/\r/g, "").replace(/[\t ]+/g, " ").replace(/\n{3,}/g, "\n\n").trim().slice(0, maximum);
+}
+
+function normalizeSocialPost(post, index, avatarCache = {}) {
   const account = Object.hasOwn(SOCIAL_ACCOUNTS, post?.account) ? post.account : null;
   const postId = String(post?.postId ?? post?.id ?? "");
   if (!account || !postId) return null;
@@ -403,17 +468,22 @@ function normalizeSocialPost(post, index) {
     account,
     displayName: String(post?.displayName || SOCIAL_ACCOUNTS[account].displayName),
     handle: String(post?.handle || SOCIAL_ACCOUNTS[account].handle),
-    createdAt: String(post?.createdAt || ""),
-    text: String(post?.text || ""),
-    avatarDataUrl: safeAvatarDataUrl(post?.avatarDataUrl),
+    createdAt: String(post?.createdAt || post?.publishedAt || ""),
+    publishedAt: String(post?.publishedAt || post?.createdAt || ""),
+    timeUnconfirmed: post?.timeUnconfirmed === true,
+    source: String(post?.source || "unknown"),
+    text: stripSocialMarkup(post?.text || "", 2000),
+    avatarDataUrl: safeAvatarDataUrl(post?.avatarDataUrl) || safeAvatarDataUrl(avatarCache[account]) || SOCIAL_LOCAL_AVATARS[account],
     order: index,
   };
 }
 
 function SocialFeed({ onClose, runtimeMode, runtimeController, settings, appearanceClass = "", appearanceStyle }) {
-  const [feedState, setFeedState] = useState({ status: "loading", reason: "", posts: [], cacheAgeSeconds: null, degraded: false });
+  const [feedState, setFeedState] = useState({ status: "loading", reason: "", posts: [], cacheAgeSeconds: null, fetchedAt: null, degraded: false });
   const [translations, setTranslations] = useState({});
   const [openStatus, setOpenStatus] = useState({});
+  const [avatarCache, setAvatarCache] = useState(readAvatarCache);
+  const [refreshNonce, setRefreshNonce] = useState(0);
   const aliveRef = useRef(true);
   const accountIds = Object.keys(SOCIAL_ACCOUNTS).filter((id) => settings.socialAccounts?.[id] === true);
   const maxPosts = Math.max(1, Math.min(10, Math.round(Number(settings.socialMaxPosts) || 4)));
@@ -427,46 +497,58 @@ function SocialFeed({ onClose, runtimeMode, runtimeController, settings, appeara
     setTranslations({});
     setOpenStatus({});
     if (!settings.socialEnabled) {
-      setFeedState({ status: "disabled", reason: "社交动态已在设置中关闭。", posts: [], cacheAgeSeconds: null, degraded: false });
+      setFeedState({ status: "disabled", reason: "社交动态已在设置中关闭。", posts: [], cacheAgeSeconds: null, fetchedAt: null, degraded: false });
       return () => { active = false; };
     }
     if (accountIds.length === 0) {
-      setFeedState({ status: "disabled", reason: "请至少启用一个账户。", posts: [], cacheAgeSeconds: null, degraded: false });
+      setFeedState({ status: "disabled", reason: "请至少启用一个账户。", posts: [], cacheAgeSeconds: null, fetchedAt: null, degraded: false });
       return () => { active = false; };
     }
-    setFeedState({ status: "loading", reason: "", posts: [], cacheAgeSeconds: null, degraded: false });
+    setFeedState({ status: "loading", reason: "", posts: [], cacheAgeSeconds: null, fetchedAt: null, degraded: false });
     if (!runtimeMode) {
       const posts = CONCEPT_SOCIAL_POSTS
         .filter((post) => accountIds.includes(post.account) && post.ageHours <= hours)
         .map((post) => ({ ...post, createdAt: new Date(Date.now() - post.ageHours * 60 * 60 * 1000).toISOString() }))
         .slice(0, maxPosts)
-        .map(normalizeSocialPost)
-        .filter(Boolean);
-      setFeedState({ status: "ready", reason: "本地 mock 演示", posts, cacheAgeSeconds: 0, degraded: false });
+         .map((post, index) => normalizeSocialPost(post, index, avatarCache))
+         .filter(Boolean);
+       setAvatarCache((current) => {
+         const next = { ...current };
+         posts.forEach((post) => { if (safeAvatarDataUrl(post.avatarDataUrl)) next[post.account] = post.avatarDataUrl; });
+         writeAvatarCache(next);
+         return next;
+       });
+        setFeedState({ status: "ready", reason: "本地 mock 演示", posts, cacheAgeSeconds: 0, fetchedAt: new Date().toISOString(), degraded: false });
       return () => { active = false; };
     }
     if (!runtimeController?.capabilities.getSocialFeed) {
-      setFeedState({ status: "unavailable", reason: "此页面暂时不可访问", posts: [], cacheAgeSeconds: null, degraded: false });
+      setFeedState({ status: "unavailable", reason: "此页面暂时不可访问", posts: [], cacheAgeSeconds: null, fetchedAt: null, degraded: false });
       return () => { active = false; };
     }
     runtimeController.getSocialFeed({ accounts: accountIds, maxPosts, hours, locale, useJinaFallback: settings.socialUseJinaFallback === true })
       .then((payload) => {
         if (!active) return;
         if (payload?.available !== true) {
-          setFeedState({ status: "unavailable", reason: "此页面暂时不可访问", posts: [], cacheAgeSeconds: Number.isFinite(payload?.cacheAgeSeconds) ? payload.cacheAgeSeconds : null, degraded: payload?.degraded === true });
+          setFeedState({ status: "unavailable", reason: "此页面暂时不可访问", posts: [], cacheAgeSeconds: Number.isFinite(payload?.cacheAgeSeconds) ? payload.cacheAgeSeconds : null, fetchedAt: payload?.fetchedAt || null, degraded: payload?.degraded === true });
           return;
         }
-        const posts = (Array.isArray(payload.posts) ? payload.posts : []).slice(0, maxPosts).map(normalizeSocialPost).filter(Boolean);
-        setFeedState({ status: "ready", reason: String(payload?.reason || ""), posts, cacheAgeSeconds: Number.isFinite(payload?.cacheAgeSeconds) ? payload.cacheAgeSeconds : null, degraded: payload?.degraded === true });
+        const posts = (Array.isArray(payload.posts) ? payload.posts : []).slice(0, maxPosts).map((post, index) => normalizeSocialPost(post, index, avatarCache)).filter(Boolean);
+        setAvatarCache((current) => {
+          const next = { ...current };
+          posts.forEach((post) => { if (safeAvatarDataUrl(post.avatarDataUrl)) next[post.account] = post.avatarDataUrl; });
+          writeAvatarCache(next);
+          return next;
+        });
+        setFeedState({ status: "ready", reason: String(payload?.reason || ""), posts, cacheAgeSeconds: Number.isFinite(payload?.cacheAgeSeconds) ? payload.cacheAgeSeconds : null, fetchedAt: payload?.fetchedAt || null, degraded: payload?.degraded === true });
       })
-      .catch(() => { if (active) setFeedState({ status: "unavailable", reason: "此页面暂时不可访问", posts: [], cacheAgeSeconds: null, degraded: false }); });
+      .catch(() => { if (active) setFeedState({ status: "unavailable", reason: "此页面暂时不可访问", posts: [], cacheAgeSeconds: null, fetchedAt: null, degraded: false }); });
     return () => { active = false; };
-  }, [runtimeMode, runtimeController, settings.socialEnabled, settings.socialUseJinaFallback, locale, hours, maxPosts, accountIds.join("|")]);
+  }, [runtimeMode, runtimeController, settings.socialEnabled, settings.socialUseJinaFallback, locale, hours, maxPosts, accountIds.join("|"), refreshNonce]);
 
   const translatePost = async (post) => {
     setTranslations((current) => ({ ...current, [post.postId]: { status: "loading", text: "" } }));
     if (!runtimeMode) {
-      setTranslations((current) => ({ ...current, [post.postId]: { status: "ready", text: `[${locale}] 本地 mock 翻译：${post.text}` } }));
+      setTranslations((current) => ({ ...current, [post.postId]: { status: "ready", text: stripSocialMarkup(`[${locale}] 本地 mock 翻译：${post.text}`) } }));
       return;
     }
     if (!runtimeController?.capabilities.translateSocialPost) {
@@ -476,7 +558,10 @@ function SocialFeed({ onClose, runtimeMode, runtimeController, settings, appeara
     try {
       const result = await runtimeController.translateSocialPost({ postId: post.postId, targetLocale: locale });
       if (!aliveRef.current) return;
-      setTranslations((current) => ({ ...current, [post.postId]: result?.available === true && result?.text ? { status: "ready", text: String(result.text) } : { status: "error", text: "翻译服务暂时不可用" } }));
+       const translatedText = (result?.status === "translated" || result?.available === true) && result?.text
+         ? stripSocialMarkup(result.text)
+         : "";
+       setTranslations((current) => ({ ...current, [post.postId]: translatedText ? { status: "ready", text: translatedText } : { status: "error", text: "翻译服务暂时不可用" } }));
     } catch {
       if (!aliveRef.current) return;
       setTranslations((current) => ({ ...current, [post.postId]: { status: "error", text: "翻译服务暂时不可用" } }));
@@ -502,11 +587,27 @@ function SocialFeed({ onClose, runtimeMode, runtimeController, settings, appeara
     }
   };
 
+  const formatSocialTime = (post) => {
+    if (post.timeUnconfirmed) return "时间未确认";
+    const value = post.publishedAt || post.createdAt;
+    const parsed = Date.parse(value || "");
+    return Number.isFinite(parsed)
+      ? new Date(parsed).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })
+      : "发布时间未提供";
+  };
+
+  const formatFetchedAt = (value) => {
+    const parsed = Date.parse(value || "");
+    return Number.isFinite(parsed) ? new Date(parsed).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "未记录";
+  };
+
+  const sourceCount = new Set(feedState.posts.map((post) => post.source)).size;
+
   return createPortal(
     <div className={`inner-modal-backdrop ${appearanceClass}`} style={appearanceStyle}>
       <section className="social-feed-dialog" role="dialog" aria-modal="true" aria-label="看看他社交动态">
-        <header><div><MenuGlyph name="observe" size={18}/><div><strong>看看他</strong><span>{runtimeMode ? "只读社交动态" : "本地 mock 演示 · 非网络内容"}</span></div></div><button type="button" aria-label="关闭看看他" onClick={onClose}><Icon name="close" size={16}/></button></header>
-        <div className="social-feed-meta"><span>最近 {hours} 小时</span><span>最多 {maxPosts} 条</span><span>目标语言 {locale}</span>{Number.isFinite(feedState.cacheAgeSeconds) ? <span>缓存 {Math.max(0, Math.round(feedState.cacheAgeSeconds))} 秒</span> : null}{feedState.degraded ? <span>降级只读来源</span> : null}<b>不影响诊断或修复</b></div>
+        <header><div><MenuGlyph name="observe" size={18}/><div><strong>看看他</strong><span>{runtimeMode ? "只读社交动态 · 官方来源优先" : "本地 mock 演示 · 非网络内容"}</span></div></div><div className="social-feed-actions"><button type="button" className="social-feed-refresh" aria-label="刷新看看他" disabled={feedState.status === "loading"} onClick={() => setRefreshNonce((value) => value + 1)}>刷新</button><button type="button" aria-label="关闭看看他" onClick={onClose}><Icon name="close" size={16}/></button></div></header>
+        <div className="social-feed-meta"><span>最近 {hours} 小时</span><span>最多 {maxPosts} 条</span><span>目标语言 {locale}</span>{sourceCount > 0 ? <span>来源 {sourceCount} 个</span> : null}{feedState.fetchedAt ? <span>更新于 {formatFetchedAt(feedState.fetchedAt)}</span> : null}{Number.isFinite(feedState.cacheAgeSeconds) ? <span>缓存 {Math.max(0, Math.round(feedState.cacheAgeSeconds))} 秒</span> : null}{feedState.degraded ? <span>降级只读来源</span> : null}<b>不影响诊断或修复</b></div>
         <div className="social-feed-scroll">
           {feedState.status === "loading" ? <div className="social-feed-empty"><strong>正在获取只读动态…</strong><span>主窗口与设置不受阻塞</span></div> : null}
           {["disabled", "unavailable"].includes(feedState.status) ? <div className="social-feed-empty"><strong>{feedState.reason}</strong><span>{feedState.status === "disabled" ? "可在更多设置 → 社交动态中调整" : "入口仍可关闭，诊断与修复不受影响"}</span></div> : null}
@@ -515,7 +616,7 @@ function SocialFeed({ onClose, runtimeMode, runtimeController, settings, appeara
             const translation = translations[post.postId];
             return <article className="social-post" key={post.postId} dir={locale === "ar" ? "rtl" : "ltr"}>
               <div className="social-avatar">{post.avatarDataUrl ? <img src={post.avatarDataUrl} alt="" /> : <span>{post.displayName.slice(0, 1).toUpperCase()}</span>}</div>
-              <div className="social-post-body"><header><strong>{post.displayName}</strong><span>{post.handle}</span><time>{post.createdAt ? new Date(post.createdAt).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "时间未知"}</time></header><p>{post.text}</p>{translation ? <div className={`social-translation is-${translation.status}`}>{translation.status === "loading" ? "正在翻译…" : translation.text}</div> : null}<footer><button type="button" disabled={translation?.status === "loading"} onClick={() => translatePost(post)}>翻译为 {locale}</button><button type="button" onClick={() => openPost(post)}>查看原帖 ↗</button>{openStatus[post.postId] ? <span>{openStatus[post.postId]}</span> : null}</footer></div>
+              <div className="social-post-body"><header><strong>{post.displayName}</strong><span>{post.handle}</span><small className="social-post-source">来源：{SOCIAL_SOURCE_LABELS[post.source] || "受限来源"}</small><time>{formatSocialTime(post)}</time></header><p>{post.text}</p>{translation ? <div className={`social-translation is-${translation.status}`}>{translation.status === "loading" ? "正在翻译…" : translation.text}</div> : null}<footer><button type="button" disabled={translation?.status === "loading"} onClick={() => translatePost(post)}>翻译为 {locale}</button><button type="button" onClick={() => openPost(post)}>查看原帖 ↗</button>{openStatus[post.postId] ? <span>{openStatus[post.postId]}</span> : null}</footer></div>
             </article>;
           })}
         </div>
@@ -989,11 +1090,12 @@ export default function RecoveryWindow({ scheme, onSchemeChange, mix, setMix, se
 
   const repairEligibility = runtimeController?.getRepairEligibility(runtimeReport?.reportId) ?? { allowed: false, reason: "runtime-unavailable" };
   const canRepair = Boolean(runtimeInfo.realRepairEnabled && repairEligibility.allowed && !operationBusy);
+  const waitingForDiagnosis = runtimeMode && !runtimeReport && !operationBusy && !flowState;
 
   return (
     <div className={`recovery-window layout-${scheme.id} material-${mix.material} palette-${paletteClass} density-${mix.density} geometry-${mix.geometry}`} data-testid="recovery-window" data-layout={scheme.id} data-material={mix.material} data-palette={mix.colorPreset} data-palette-base={paletteClass} data-game-active={gameActive ? "true" : "false"} style={glassStyle}>
       <header className="recovery-titlebar">
-        <div className="product-title"><span className="product-mark">W</span><div><strong>WinBridge Recovery <b>4.0</b></strong><small>{runtimeMode ? (bridgeAvailable ? "桌面运行态 · 受控桥接已连接" : "桌面运行态预览 · 操作不可执行") : "预发布概念 · 不连接修复引擎"}</small></div></div>
+        <div className="product-title"><img className="product-mark winbridge-mark" src={winbridgeMark} alt="" aria-hidden="true" /><div><strong>WinBridge Recovery <b>4.0</b></strong><small>{runtimeMode ? (bridgeAvailable ? "桌面运行态 · 受控桥接已连接" : "桌面运行态预览 · 操作不可执行") : "预发布概念 · 不连接修复引擎"}</small></div></div>
         <div className="titlebar-runtime"><span className="architecture-chip">Electron UI · 独立 Worker</span></div>
         <div className="titlebar-safety"><span className="readonly-chip"><Icon name="shield" size={14}/>{operationBusy ? "操作受控执行中" : "写入锁定"}</span>{!runtimeMode ? <button type="button" aria-label="概念窗口关闭按钮（无操作）"><Icon name="close" size={15}/></button> : null}</div>
       </header>
@@ -1010,12 +1112,12 @@ export default function RecoveryWindow({ scheme, onSchemeChange, mix, setMix, se
       </div>
       <section className="progress-action-zone">
         <div className="fluid-demo-column">
-          <NebulaFluidProgress actualProgress={progress} channels={mix.channels} speed={mix.speed} reducedMotion={settings.reduceMotion} lowEndMode={settings.lowEndMode} indeterminate={progressMode === "indeterminate"} resultReady={flowState === "ResultReady"} sessionKey={demoSession} />
+          <NebulaFluidProgress actualProgress={progress} channels={mix.channels} speed={mix.speed} reducedMotion={settings.reduceMotion} lowEndMode={settings.lowEndMode} indeterminate={progressMode === "indeterminate"} resultReady={flowState === "ResultReady"} sessionKey={demoSession} label={waitingForDiagnosis ? "等待只读诊断" : undefined} />
           {!runtimeMode ? <div className="progress-demo-controls">
             <label className="progress-slider"><span>actualProgress</span><input ref={progressSliderRef} aria-label="预览进度" type="range" min="0" max={flowState === "ResultReady" ? "100" : "99"} value={progress} onInput={(event) => updateActualProgress(event.currentTarget.value)} onChange={(event) => updateActualProgress(event.currentTarget.value)} onKeyDown={handleProgressKeyDown}/><b>{progress}%</b></label>
             <button type="button" className="demo-button" onClick={runVisualDemo} disabled={demoRunning}>{demoRunning ? "演示进行中…" : "自动演示缓冲动画"}</button>
             <button type="button" className={`mode-button ${progressMode === "indeterminate" ? "is-on" : ""}`} onClick={() => setProgressMode((current) => current === "indeterminate" ? "determinate" : "indeterminate")}>{progressMode === "indeterminate" ? "结束长步骤呼吸" : "模拟未知长步骤"}</button>
-          </div> : runtimeError ? <div className="runtime-error" role="alert"><Icon name="shield" size={14}/><span>{runtimeError}</span></div> : null}
+          </div> : waitingForDiagnosis ? <div className="diagnosis-start-hint" role="status" aria-live="polite"><Icon name="shield" size={14}/><div><strong>请先开始只读诊断</strong><span>点击下方“只读诊断”收集本机证据；此阶段不会写入任何插件。</span></div></div> : runtimeError ? <div className="runtime-error" role="alert"><Icon name="shield" size={14}/><span>{runtimeError}</span></div> : null}
         </div>
         <DecisionSummary flowState={flowState} actualProgress={progress} indeterminate={progressMode === "indeterminate"} report={runtimeReport} runtimeMode={runtimeMode}/>
       </section>
@@ -1044,9 +1146,9 @@ export default function RecoveryWindow({ scheme, onSchemeChange, mix, setMix, se
           ) : null}
           <button className="gear-button" type="button" aria-label="打开设置菜单" aria-expanded={gearOpen} onClick={() => setGearOpen((value) => !value)}><MenuGlyph name="settings" size={20}/></button>
         </div>
-        <div className="command-status"><span>{flowState || "等待只读诊断"}</span><small>动画仅缓冲呈现，不影响真实状态</small></div>
+        <div className="command-status"><span>{flowState || (runtimeMode ? "请先开始只读诊断" : "等待只读诊断")}</span><small>{waitingForDiagnosis ? "只读阶段不会写入任何插件" : "动画仅缓冲呈现，不影响真实状态"}</small></div>
         <div className="primary-actions">
-          <button type="button" onClick={runtimeMode ? runRuntimeDiagnosis : simulateReadOnlyScan} disabled={runtimeMode && (!runtimeController?.capabilities.runDiagnosis || operationBusy)}>{runtimeMode && operationBusy ? "诊断/修复进行中…" : runtimeMode && !runtimeController?.capabilities.runDiagnosis ? "只读诊断（不可执行）" : "只读诊断"}</button>
+          <button type="button" onClick={runtimeMode ? runRuntimeDiagnosis : simulateReadOnlyScan} disabled={runtimeMode && (!runtimeController?.capabilities.runDiagnosis || operationBusy)}>{runtimeMode && operationBusy ? "诊断/修复进行中…" : runtimeMode && !runtimeController?.capabilities.runDiagnosis ? "只读诊断（不可执行）" : waitingForDiagnosis ? "开始只读诊断" : "只读诊断"}</button>
           <button type="button" onClick={runtimeMode ? openRuntimeReport : () => { setReportOpen(true); setFlowState("AwaitingDecision"); }} disabled={runtimeMode && !runtimeReport && !runtimeController?.capabilities.getDiagnosisReport}>查看修复说明</button>
           <button type="button" disabled title="备份只在用户确认修复后由冻结修复序列创建">备份随修复创建</button>
           <button type="button" disabled title="当前 preload 契约不提供独立回滚命令">回滚不可单独执行</button>

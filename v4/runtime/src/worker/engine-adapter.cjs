@@ -8,6 +8,28 @@ const { makeId, validateDiagnosticReport } = require('../shared/contracts.cjs');
 const { mapBounded } = require('./read-only-pool.cjs');
 const { classifyEvidence } = require('./diagnostic-policy.cjs');
 
+const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
+const gb18030Decoder = new TextDecoder('gb18030');
+const utf16leDecoder = new TextDecoder('utf-16le');
+
+/**
+ * Windows PowerShell writes redirected console output in the active OEM/code
+ * page. Decoding every chunk as UTF-8 turns Chinese evidence into "���". Try
+ * UTF-8 first for modern scripts, then fall back to the Windows-compatible
+ * GB18030 decoder while retaining BOM-aware UTF-16 output.
+ */
+function decodePowerShellLine(value) {
+  const bytes = Buffer.isBuffer(value) ? value : Buffer.from(value || '');
+  if (!bytes.length) return '';
+  if (bytes[0] === 0xFF && bytes[1] === 0xFE) return utf16leDecoder.decode(bytes.subarray(2));
+  const withoutUtf8Bom = bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF ? bytes.subarray(3) : bytes;
+  try {
+    return utf8Decoder.decode(withoutUtf8Bom);
+  } catch {
+    return gb18030Decoder.decode(withoutUtf8Bom);
+  }
+}
+
 async function sha256(file) {
   const handle = await fs.open(file, 'r');
   const hash = crypto.createHash('sha256');
@@ -198,16 +220,44 @@ class EngineAdapter {
       const stderr = [];
       let settled = false;
 
-      const consume = (target, level) => (chunk) => {
-        for (const line of chunk.toString('utf8').split(/\r?\n/).filter(Boolean)) {
-          target.push(line.slice(0, 8192));
-          this.onLog({ level, category: 'engine', message: line, operationId });
-        }
+      const emitProgress = () => {
         const progress = Math.min(95, 20 + Math.floor((stdout.length + stderr.length) / 4));
         this.onEvent({ operationId, kind: 'Progress', actualProgress: progress, engineStageState: mode, presentedStageState: mode === 'DiagnoseOnly' ? 'Diagnosing' : 'Repairing', message: 'Frozen engine is running.' });
       };
-      child.stdout.on('data', consume(stdout, 'info'));
-      child.stderr.on('data', consume(stderr, 'warn'));
+      const createLineConsumer = (target, level) => {
+        let pending = Buffer.alloc(0);
+        const emitLine = (lineBytes) => {
+          const line = decodePowerShellLine(lineBytes).replace(/^\uFEFF/, '');
+          if (!line) return;
+          target.push(line.slice(0, 8192));
+          this.onLog({ level, category: 'engine', message: line, operationId });
+        };
+        const consume = (chunk) => {
+          pending = Buffer.concat([pending, Buffer.from(chunk)]);
+          let start = 0;
+          for (let index = 0; index < pending.length; index += 1) {
+            if (pending[index] !== 0x0A) continue;
+            let lineBytes = pending.subarray(start, index);
+            if (lineBytes[lineBytes.length - 1] === 0x0D) lineBytes = lineBytes.subarray(0, lineBytes.length - 1);
+            emitLine(lineBytes);
+            start = index + 1;
+          }
+          if (start > 0) pending = pending.subarray(start);
+          emitProgress();
+        };
+        const flush = () => {
+          if (pending.length) {
+            emitLine(pending);
+            pending = Buffer.alloc(0);
+            emitProgress();
+          }
+        };
+        return { consume, flush };
+      };
+      const stdoutConsumer = createLineConsumer(stdout, 'info');
+      const stderrConsumer = createLineConsumer(stderr, 'warn');
+      child.stdout.on('data', stdoutConsumer.consume);
+      child.stderr.on('data', stderrConsumer.consume);
       const abort = () => {
         if (!child.pid || child.exitCode !== null) return;
         if (process.platform === 'win32') {
@@ -233,6 +283,8 @@ class EngineAdapter {
       child.once('exit', (code, exitSignal) => {
         if (settled) return;
         settled = true;
+        stdoutConsumer.flush();
+        stderrConsumer.flush();
         signal.removeEventListener('abort', abort);
         this.unregisterChild(child);
         if (signal.aborted) return reject(signal.reason || new Error('Operation cancelled'));
@@ -242,4 +294,4 @@ class EngineAdapter {
   }
 }
 
-module.exports = { EngineAdapter, sha256, loadCoreDiagnosisReport };
+module.exports = { EngineAdapter, sha256, loadCoreDiagnosisReport, decodePowerShellLine };

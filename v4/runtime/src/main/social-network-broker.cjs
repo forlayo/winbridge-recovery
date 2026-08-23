@@ -4,6 +4,7 @@ const {
   SOCIAL_BROKER_OPERATIONS,
   validateSocialRegistrationPayload,
   validateSocialSourceBrokerPayload,
+  validateSocialAvatarBrokerPayload,
   validateTranslationRequest,
   buildSocialSourceUrl,
   assertFixedSocialSourceUrl,
@@ -12,16 +13,46 @@ const {
 } = require('../shared/social-contracts.cjs');
 
 const MAX_SOURCE_RESPONSE_BYTES = 2 * 1024 * 1024;
+const MAX_AVATAR_PROFILE_RESPONSE_BYTES = 2 * 1024 * 1024;
+const MAX_AVATAR_RESPONSE_BYTES = 512 * 1024;
 const MAX_TRANSLATION_RESPONSE_BYTES = 256 * 1024;
 const SOURCE_TIMEOUT_MS = 9000;
 const JINA_TIMEOUT_MS = 12000;
 const TRANSLATION_TIMEOUT_MS = 12000;
 
 const SOURCE_CONTENT_TYPES = Object.freeze({
+  'x-profile': Object.freeze(['text/html', 'application/xhtml+xml', 'text/plain']),
   'xxu-rss': Object.freeze(['application/rss+xml', 'application/atom+xml', 'application/xml', 'text/xml', 'text/plain']),
   rsshub: Object.freeze(['application/rss+xml', 'application/atom+xml', 'application/xml', 'text/xml', 'text/plain']),
   jina: Object.freeze(['text/plain', 'text/markdown'])
 });
+
+const AVATAR_CONTENT_TYPES = Object.freeze(['image/jpeg', 'image/png', 'image/webp']);
+
+function normalizeAvatarUrl(value) {
+  return String(value || '').replace(/\\\//g, '/').replace(/&amp;/gi, '&').trim();
+}
+
+function assertFixedAvatarImageUrl(value) {
+  let parsed;
+  try { parsed = new URL(value); } catch { throw new SocialNetworkError('avatar-url-invalid'); }
+  if (parsed.protocol !== 'https:' || parsed.hostname.toLowerCase() !== 'pbs.twimg.com' || parsed.username || parsed.password || parsed.port || parsed.search || parsed.hash) {
+    throw new SocialNetworkError('avatar-url-invalid');
+  }
+  if (!/^\/profile_images\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+(?:_(?:400x400|200x200|bigger|normal|mini|x96|reasonably_small))?\.(?:jpe?g|png|webp)$/i.test(parsed.pathname)) {
+    throw new SocialNetworkError('avatar-url-invalid');
+  }
+  return parsed.toString();
+}
+
+function extractOfficialAvatarUrl(html) {
+  const normalized = String(html || '').replace(/\\\//g, '/');
+  const matches = [...normalized.matchAll(/https:\/\/pbs\.twimg\.com\/profile_images\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+(?:_(?:400x400|200x200|bigger|normal|mini|x96|reasonably_small))?\.(?:jpe?g|png|webp)/gi)]
+    .map((match) => match[0])
+    .map((value) => { try { return assertFixedAvatarImageUrl(value); } catch { return null; } })
+    .filter(Boolean);
+  return matches.find((value) => /_(?:400x400|200x200)\./i.test(value)) || matches[0] || null;
+}
 
 class SocialNetworkError extends Error {
   constructor(code) {
@@ -79,6 +110,7 @@ class SocialNetworkBroker {
     this.timeouts = {
       source: timeouts.source || SOURCE_TIMEOUT_MS,
       jina: timeouts.jina || JINA_TIMEOUT_MS,
+      avatar: timeouts.avatar || SOURCE_TIMEOUT_MS,
       translation: timeouts.translation || TRANSLATION_TIMEOUT_MS
     };
     this.registeredPosts = new Map();
@@ -95,6 +127,8 @@ class SocialNetworkBroker {
         return this.registerPosts(payload);
       case SOCIAL_BROKER_OPERATIONS.FETCH_SOURCE:
         return this.fetchSource(requestId, payload);
+      case SOCIAL_BROKER_OPERATIONS.FETCH_AVATAR:
+        return this.fetchAvatar(requestId, payload);
       case SOCIAL_BROKER_OPERATIONS.TRANSLATE_POST:
         return this.translatePost(requestId, payload);
       default:
@@ -118,8 +152,30 @@ class SocialNetworkBroker {
       acceptedContentTypes: SOURCE_CONTENT_TYPES[value.source],
       accept: value.source === 'jina'
         ? 'text/plain, text/markdown;q=0.9'
+        : value.source === 'x-profile'
+          ? 'text/html, application/xhtml+xml;q=0.9, text/plain;q=0.5'
         : 'application/rss+xml, application/atom+xml;q=0.9, application/xml;q=0.8, text/xml;q=0.8, text/plain;q=0.5'
     });
+  }
+
+  async fetchAvatar(requestId, payload) {
+    const value = validateSocialAvatarBrokerPayload(payload);
+    const profileUrl = assertFixedSocialSourceUrl(buildSocialSourceUrl(value.account, 'x-profile'), value.account, 'x-profile');
+    const profileResponse = await this.fetchBounded(`${requestId}:profile`, profileUrl, {
+      timeoutMs: this.timeouts.avatar,
+      maximum: MAX_AVATAR_PROFILE_RESPONSE_BYTES,
+      acceptedContentTypes: SOURCE_CONTENT_TYPES['x-profile'],
+      accept: 'text/html, application/xhtml+xml;q=0.9, text/plain;q=0.5'
+    });
+    const avatarUrl = extractOfficialAvatarUrl(profileResponse.body.toString('utf8'));
+    if (!avatarUrl) throw new SocialNetworkError('avatar-not-found');
+    const imageResponse = await this.fetchBounded(`${requestId}:image`, avatarUrl, {
+      timeoutMs: this.timeouts.avatar,
+      maximum: MAX_AVATAR_RESPONSE_BYTES,
+      acceptedContentTypes: AVATAR_CONTENT_TYPES,
+      accept: 'image/webp, image/png, image/jpeg;q=0.9'
+    });
+    return { ...imageResponse, avatarSourceUrl: avatarUrl };
   }
 
   translatePost(requestId, payload) {
@@ -199,10 +255,15 @@ class SocialNetworkBroker {
 
 module.exports = {
   MAX_SOURCE_RESPONSE_BYTES,
+  MAX_AVATAR_PROFILE_RESPONSE_BYTES,
+  MAX_AVATAR_RESPONSE_BYTES,
   MAX_TRANSLATION_RESPONSE_BYTES,
   SOURCE_CONTENT_TYPES,
+  AVATAR_CONTENT_TYPES,
   SocialNetworkError,
   normalizeContentType,
+  assertFixedAvatarImageUrl,
+  extractOfficialAvatarUrl,
   readResponseBytes,
   SocialNetworkBroker
 };

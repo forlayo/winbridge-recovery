@@ -47,6 +47,15 @@ test('social cache rejects bound-content tampering and a size limit overflow', a
   await assert.rejects(() => tiny.write([post], '2026-08-13T12:00:00.000Z'), /size boundary/);
 });
 
+test('social avatar cache is bounded, regular-file-only, and normalizes official image data', async () => {
+  const cache = new SocialFeedCache(path.join(testRoot, 'avatar'));
+  const dataUrl = `data:image/jpeg;base64,${Buffer.from([0xff, 0xd8, 0xff, 0xd9]).toString('base64')}`;
+  assert.equal(await cache.writeAvatars({ openai: { dataUrl, fetchedAt: '2026-08-13T12:00:00.000Z' }, attacker: { dataUrl, fetchedAt: '2026-08-13T12:00:00.000Z' } }), true);
+  assert.deepEqual(await cache.readAvatars(), { openai: { dataUrl, fetchedAt: '2026-08-13T12:00:00.000Z' } });
+  await fs.writeFile(cache.avatarFile, JSON.stringify({ schemaVersion: 1, avatars: { openai: { dataUrl, fetchedAt: 'invalid' } } }), 'utf8');
+  assert.deepEqual(await cache.readAvatars(), {});
+});
+
 test('social cache refuses unconfirmed and invalid publication timestamps', async () => {
   const cache = new SocialFeedCache(path.join(testRoot, 'untrusted-time'));
   const unconfirmed = makePost('tibo', {

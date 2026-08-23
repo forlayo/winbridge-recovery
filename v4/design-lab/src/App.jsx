@@ -27,7 +27,11 @@ export default function App() {
     const storedUi = loadUiState();
     return runtimeMode ? mergeNativeSettings(storedUi, NATIVE_SETTINGS_DEFAULTS) : storedUi;
   });
-  const [progress, setProgress] = useState(64);
+  // The packaged runtime must not imply that a diagnosis is already underway.
+  // Keep the concept lab's illustrative 64% starting point, but make the
+  // formal runtime begin at a truthful zero until the user starts read-only
+  // diagnosis.
+  const [progress, setProgress] = useState(() => runtimeMode ? 0 : 64);
   const [jsonOpen, setJsonOpen] = useState(false);
   const [nativeSettingsHydrated, setNativeSettingsHydrated] = useState(!runtimeMode);
   const [nativeSettingsError, setNativeSettingsError] = useState("");

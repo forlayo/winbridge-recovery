@@ -1,4 +1,5 @@
 import { Icon } from "./Icons.jsx";
+import winbridgeMark from "../assets/WinBridge.png";
 
 const tabs = [
   ["preview", "方案预览"],
@@ -13,7 +14,7 @@ export default function LabHeader({ view, setView, onJsonPreview, onExport }) {
   return (
     <header className="lab-header">
       <div className="lab-brand">
-        <span className="lab-brand-mark">W4</span>
+        <img className="lab-brand-mark winbridge-mark" src={winbridgeMark} alt="" aria-hidden="true" />
         <div>
           <strong>WinBridge Recovery 4.0</strong>
           <span>UI 概念选择实验室</span>

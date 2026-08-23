@@ -1,6 +1,6 @@
 # WinBridge Recovery 4.0.0
 
-This is the first integrated WinBridge Recovery 4.0 release candidate built from the two V4 development branches.
+This is the first integrated WinBridge Recovery 4.0 formal Windows release built from the two V4 development branches.
 
 ## Integrated in this version
 
@@ -19,18 +19,33 @@ This is the first integrated WinBridge Recovery 4.0 release candidate built from
 - Browser, Chrome, and Computer Use cards now update independently from live diagnostic and repair log evidence before the final report arrives.
 - Stage 4 switches from the user-decision state to repair-in-progress immediately after confirmation; Stage 5 starts when Desktop reports that it has opened and remains active through post-start verification.
 - Development-only stage-state text has been removed from the packaged interface.
+- All five runtime layouts keep their panels inside the scrollable window at narrow and normal desktop sizes; stage, terminal, progress, and plugin cards no longer cover one another.
+- Social feed entries strip frontend markup, show official X profile avatars through a bounded local cache, preserve unknown timestamps as `Time unavailable`, and expose source labels and translation controls.
 
 ## Demonstration safety
 
 The ordinary desktop demonstration build does not include the `--enable-real-repair` launch flag. It can be used to inspect the interface without starting a real repair.
 
+## Distribution
+
+- Windows x64 installer: `WinBridge-Recovery-Setup-v4.0.0.exe`.
+- Windows x64 portable archive: `WinBridge-Recovery-v4.0.0-portable-win-x64.zip`.
+- SHA-256 sidecars are published beside both artifacts.
+- Installer SHA-256: `6AA746380B2501CD6734D42CD37E4D7ABFABD47D82AD12A47FD8296A7A8C1F6A`.
+- Portable ZIP SHA-256: `05F575C7DD21BE7150069DD1A3849A9B30E2E32EC83F51F190E1332ED241AC8A`.
+- The installer is self-contained and creates a separate `WinBridge-Recovery-V4` installation, desktop shortcut, and per-user uninstall registration; it does not overwrite the legacy 3.x installation.
+- The public installer is currently unsigned; Windows SmartScreen may show the normal warning for an unsigned first-party build.
+
 ## Validation
 
 - PowerShell syntax scan: passed.
-- Automated runtime tests: 78 passed, 0 failed.
-- Design Lab production build: passed (44 modules).
-- Packaged runtime: Electron 43.4.0, Windows x64, 75 files, 365,473,888 bytes.
+- Automated runtime tests: 83 passed, 0 failed.
+- Design Lab production build: passed.
+- Frontend sync verification: passed.
+- Packaging input check: passed (Electron 43.4.0, Packager 20.3.0).
+- Packaged runtime: Electron 43.4.0, Windows x64.
 - Packaged EXE version: `4.0.0`.
-- Packaged EXE SHA-256: `57717ABCFE605A596407DFC98F500FC03FE8BB8A3AD8B2ED5C841EC7BC3EF393`.
+- Packaged EXE SHA-256: `C2C4FA49F7FC58775194F443A8B0372D568B741E563DBC57F379D0F856D96F33`.
+- Packaged EXE smoke test: stayed alive for five seconds in a clean environment and was then stopped; no exact-package processes remained.
 - Packaged application contains `engine/integrated-4.0.0` and excludes the historical `engine/frozen-3.1.1` snapshot.
 - The desktop demonstration shortcut launches without `--enable-real-repair`, so real repair remains disabled.

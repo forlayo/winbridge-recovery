@@ -11,6 +11,7 @@ const {
   makePost,
   parseRss,
   parseRssPublishedAt,
+  parseXProfileHtml,
   parseJina,
   orderAndFilter,
   readBrokerResponseBounded,
@@ -106,6 +107,46 @@ test('RSS publication parsing accepts canonical ISO or strict RFC 2822 and rejec
   assert.equal(parseRssPublishedAt('13/08/2026 10:00:00'), null);
 });
 
+test('official X profile HTML contributes canonical posts and preserves known publication time', () => {
+  const html = `<article data-tweet-id="1234567890123456789"><meta content="2026-08-13T10:00:00.000Z" itemProp="datePublished"/><meta content="https://x.com/OpenAI/status/1234567890123456789" itemProp="url"/><meta content="Official &amp;amp; current update<br>with cleaned markup" itemProp="text"/></article>`;
+  const posts = parseXProfileHtml('openai', html);
+  assert.equal(posts.length, 1);
+  assert.equal(posts[0].source, 'x-profile');
+  assert.equal(posts[0].publishedAt, '2026-08-13T10:00:00.000Z');
+  assert.equal(posts[0].timeUnconfirmed, false);
+  assert.equal(posts[0].text, 'Official & current update\nwith cleaned markup');
+});
+
+test('feed hydrates official avatars once and reuses the application-owned cache', async () => {
+  const directory = path.join(testRoot, 'avatar-hydration');
+  const profile = '<article data-tweet-id="1234567890123456789"><meta content="2026-08-13T10:00:00.000Z" itemProp="datePublished"/><meta content="https://x.com/OpenAI/status/1234567890123456789" itemProp="url"/><meta content="Official current update" itemProp="text"/></article>';
+  const avatarBytes = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
+  const calls = [];
+  const broker = async (operation, payload) => {
+    calls.push({ operation, payload });
+    if (operation === SOCIAL_BROKER_OPERATIONS.REGISTER_POSTS) return { registered: payload.posts.length };
+    if (operation === SOCIAL_BROKER_OPERATIONS.FETCH_SOURCE && payload.source === 'x-profile') return { status: 200, contentType: 'text/html', body: Buffer.from(profile) };
+    if (operation === SOCIAL_BROKER_OPERATIONS.FETCH_AVATAR) return { status: 200, contentType: 'image/jpeg', body: avatarBytes };
+    throw new Error('unexpected source');
+  };
+  const first = new SocialFeedService({ dataRoot: directory, settingsProvider: async () => settings(), networkBroker: broker, now: () => now });
+  const online = await first.getFeed();
+  assert.equal(online.posts[0].source, 'x-profile');
+  assert.equal(online.posts[0].avatarDataUrl, `data:image/jpeg;base64,${avatarBytes.toString('base64')}`);
+  assert.equal((await first.cache.readAvatars()).openai.dataUrl, online.posts[0].avatarDataUrl);
+  first.shutdown();
+
+  const offline = new SocialFeedService({ dataRoot: directory, settingsProvider: async () => settings(), networkBroker: async (operation, payload) => {
+    if (operation === SOCIAL_BROKER_OPERATIONS.REGISTER_POSTS) return { registered: payload.posts.length };
+    throw new Error('offline');
+  }, now: () => now + 60000 });
+  const cached = await offline.getFeed();
+  assert.equal(cached.reason, 'cached-after-online-failure');
+  assert.equal(cached.posts[0].avatarDataUrl, online.posts[0].avatarDataUrl);
+  assert.equal(calls.some((call) => call.operation === SOCIAL_BROKER_OPERATIONS.FETCH_AVATAR), true);
+  offline.shutdown();
+});
+
 test('feed uses only structured broker operations and translation sends no free text or URL', async () => {
   const records = [];
   const service = new SocialFeedService({
@@ -119,7 +160,7 @@ test('feed uses only structured broker operations and translation sends no free 
   assert.equal(feed.posts.length, 1);
   const translated = await service.translate({ postId: feed.posts[0].postId, targetLocale: 'fr' });
   assert.equal(translated.status, 'translated');
-  const sourceCall = records.find((record) => record.operation === SOCIAL_BROKER_OPERATIONS.FETCH_SOURCE);
+  const sourceCall = records.find((record) => record.operation === SOCIAL_BROKER_OPERATIONS.FETCH_SOURCE && record.payload.source === 'xxu-rss');
   assert.deepEqual(sourceCall.payload, { account: 'openai', source: 'xxu-rss' });
   const translationCall = records.find((record) => record.operation === SOCIAL_BROKER_OPERATIONS.TRANSLATE_POST);
   assert.deepEqual(translationCall.payload, { postId: feed.posts[0].postId, targetLocale: 'fr' });

@@ -40,6 +40,7 @@ v4/**/dist/
 v4/**/out/
 v4/**/.test-artifacts/
 v4/**/dev-server.*.log
+v4/release/
 
 # Machine-local generated audit
 Documentation/C-Drive-Write-Audit.md

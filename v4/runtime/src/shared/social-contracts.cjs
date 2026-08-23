@@ -10,11 +10,12 @@ const ACCOUNTS = Object.freeze({
 
 const ACCOUNT_IDS = Object.freeze(Object.keys(ACCOUNTS));
 const SOCIAL_LOCALES = Object.freeze(['zh', 'en', 'fr', 'es', 'ru', 'ar']);
-const SOCIAL_SOURCES = Object.freeze(['xxu-rss', 'rsshub', 'jina']);
+const SOCIAL_SOURCES = Object.freeze(['x-profile', 'xxu-rss', 'rsshub', 'jina']);
 const MAX_SOCIAL_FUTURE_SKEW_MS = 5 * 60 * 1000;
 const SOCIAL_BROKER_OPERATIONS = Object.freeze({
   REGISTER_POSTS: 'social.register-posts',
   FETCH_SOURCE: 'social.fetch-source',
+  FETCH_AVATAR: 'social.fetch-avatar',
   TRANSLATE_POST: 'social.translate-post'
 });
 const DEFAULT_SOCIAL_SETTINGS = Object.freeze({
@@ -154,6 +155,13 @@ function validateSocialSourceBrokerPayload(value) {
   return { account: value.account, source: value.source };
 }
 
+function validateSocialAvatarBrokerPayload(value) {
+  assertPlainObject(value, 'socialAvatarRequest');
+  assertKeys(value, new Set(['account']), 'socialAvatarRequest');
+  account(value.account);
+  return { account: value.account };
+}
+
 function account(id) {
   const value = ACCOUNTS[id];
   if (!value) throw new TypeError('Unsupported social account');
@@ -163,6 +171,7 @@ function account(id) {
 function buildSocialSourceUrl(accountId, source) {
   const profile = account(accountId);
   if (!SOCIAL_SOURCES.includes(source)) throw new TypeError('Unsupported social source');
+  if (source === 'x-profile') return `https://x.com/${profile.handle}`;
   if (source === 'xxu-rss') return `https://rss.xxu.do/twitter/user/${profile.handle}`;
   if (source === 'rsshub') return `https://rsshub.app/twitter/user/${profile.handle}`;
   return `https://r.jina.ai/https://x.com/${profile.handle}`;
@@ -235,6 +244,7 @@ module.exports = {
   validateRegisteredSocialPost,
   validateSocialRegistrationPayload,
   validateSocialSourceBrokerPayload,
+  validateSocialAvatarBrokerPayload,
   buildSocialSourceUrl,
   assertFixedSocialSourceUrl,
   canonicalSocialLink,

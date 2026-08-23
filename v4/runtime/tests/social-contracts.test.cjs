@@ -9,6 +9,7 @@ const {
   validateTranslationRequest,
   validateOpenSocialRequest,
   validateSocialSourceBrokerPayload,
+  validateSocialAvatarBrokerPayload,
   validateSocialRegistrationPayload,
   buildSocialSourceUrl,
   assertFixedSocialSourceUrl,
@@ -53,11 +54,14 @@ test('renderer social options expose only fixed accounts, ranges, and locales', 
 });
 
 test('source URL construction and public links cannot be redirected into SSRF targets', () => {
+  assert.equal(buildSocialSourceUrl('openai', 'x-profile'), 'https://x.com/OpenAI');
   assert.equal(buildSocialSourceUrl('tibo', 'xxu-rss'), 'https://rss.xxu.do/twitter/user/thsottiaux');
   assert.equal(buildSocialSourceUrl('openai', 'rsshub'), 'https://rsshub.app/twitter/user/OpenAI');
   assert.equal(buildSocialSourceUrl('chatgpt', 'jina'), 'https://r.jina.ai/https://x.com/ChatGPT');
   assert.throws(() => assertFixedSocialSourceUrl('https://rss.xxu.do/twitter/user/OpenAI?next=http://127.0.0.1', 'openai', 'xxu-rss'), /not allowlisted/);
   assert.throws(() => validateSocialSourceBrokerPayload({ account: 'openai', source: 'xxu-rss', url: 'https://example.test' }), /not allowed/);
+  assert.deepEqual(validateSocialAvatarBrokerPayload({ account: 'openai' }), { account: 'openai' });
+  assert.throws(() => validateSocialAvatarBrokerPayload({ account: 'openai', url: 'https://pbs.twimg.com/' }), /not allowed/);
   assert.equal(canonicalSocialLink('https://x.com/OpenAI/status/1234567890', 'openai'), 'https://x.com/OpenAI/status/1234567890');
   assert.equal(canonicalSocialLink('https://x.com.evil.test/OpenAI/status/1234567890', 'openai'), null);
   assert.equal(canonicalSocialLink('https://x.com/OpenAI/status/1234567890?next=https://127.0.0.1', 'openai'), null);

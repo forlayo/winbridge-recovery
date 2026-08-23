@@ -40,4 +40,4 @@ Do not commit `node_modules`, build output, local logs, screenshots, caches, sec
 
 - Real repair remains gated and disabled in ordinary demonstration runs.
 - The mature 3.1.1 repair core remains preserved inside the verified 4.0.0 wrapper snapshot.
-- Final publication still requires the packaged Windows build and live acceptance evidence recorded for this commit.
+- The formal Windows x64 installer and portable ZIP are published from the release assets; the public installer is unsigned and should be verified with its SHA-256 sidecar before use.
