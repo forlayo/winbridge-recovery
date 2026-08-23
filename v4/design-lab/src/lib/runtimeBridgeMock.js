@@ -86,8 +86,12 @@ export function createRuntimeBridgeMock() {
       calls.push(["runDiagnosis", operationId]);
       currentReport = null;
       emitEngine({ operationId, kind: "Progress", actualProgress: 18, displayedProgress: 18, engineStageState: "Diagnosing", presentedStageState: "Diagnosing", message: "只读诊断开始。" });
-      emitLogs([{ timestamp: new Date().toISOString(), level: "info", category: "Mock", message: "只读诊断开始。", operationId }]);
-      await wait(80);
+      emitLogs([
+        { timestamp: new Date().toISOString(), level: "info", category: "Browser", message: "[OK] Browser static manifest and latest pointer validated.", operationId },
+        { timestamp: new Date().toISOString(), level: "warn", category: "Chrome", message: "[WARN] Chrome bridge requires the planned repair.", operationId },
+        { timestamp: new Date().toISOString(), level: "info", category: "Computer Use", message: "[OK] Computer Use static registration validated.", operationId },
+      ]);
+      await wait(420);
       if (activeOperation?.operationId !== operationId) throw new Error("Mock diagnosis was cancelled.");
       currentReport = createReport(operationId);
       emitEngine({ operationId, kind: "Stage", actualProgress: 64, displayedProgress: 64, engineStageState: "ReportReady", presentedStageState: "ReportReady", message: "诊断报告已准备。" });
@@ -108,8 +112,12 @@ export function createRuntimeBridgeMock() {
       calls.push(["startRepair", reportId, operationId]);
       currentReport = null;
       emitEngine({ operationId, kind: "Progress", actualProgress: 72, displayedProgress: 72, engineStageState: "Repairing", presentedStageState: "Repairing", message: "受控修复开始。" });
-      emitLogs([{ timestamp: new Date().toISOString(), level: "warn", category: "Mock", message: "受控修复链开始；仅模拟。", operationId }]);
-      await wait(80);
+      emitLogs([{ timestamp: new Date().toISOString(), level: "warn", category: "Chrome", message: "[WARN] Chrome bridge repair is running in the isolated mock.", operationId }]);
+      await wait(520);
+      if (activeOperation?.operationId !== operationId) throw new Error("Mock repair was cancelled.");
+      emitEngine({ operationId, kind: "Progress", actualProgress: 88, displayedProgress: 88, engineStageState: "PostStartVerification", presentedStageState: "Repairing", message: "Desktop started; post-start verification is running." });
+      emitLogs([{ timestamp: new Date().toISOString(), level: "info", category: "engine", message: "[INFO] Desktop started. Waiting for two consecutive clean reconciliation checks.", operationId }]);
+      await wait(2200);
       if (activeOperation?.operationId !== operationId) throw new Error("Mock repair was cancelled.");
       emitEngine({ operationId, kind: "ResultReady", actualProgress: 100, displayedProgress: 100, engineStageState: "ResultReady", presentedStageState: "ResultReady", message: "最终核验通过。", finalVerificationPassed: true, priority: "terminal", details: { reportId } });
       emitLogs([{ timestamp: new Date().toISOString(), level: "info", category: "Mock", message: "修复 ResultReady 已发送；最终核验通过。", operationId }]);

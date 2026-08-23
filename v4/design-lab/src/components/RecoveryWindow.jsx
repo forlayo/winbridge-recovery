@@ -13,14 +13,14 @@ import GameCenter from "./games/GameCenter.jsx";
 
 const activeStageByFlow = {
   Diagnosing: 0,
-  ReportReady: 1,
-  AwaitingDecision: 2,
+  ReportReady: 2,
+  AwaitingDecision: 3,
   Repairing: 3,
   ResultReady: 4,
 };
 
-function StageRail({ flowState, progress, reduceMotion }) {
-  const engineIndex = flowState === "ResultReady" ? 5 : (activeStageByFlow[flowState] ?? -1);
+function StageRail({ flowState, progress, reduceMotion, desktopStarted }) {
+  const engineIndex = flowState === "ResultReady" ? 5 : desktopStarted ? 4 : (activeStageByFlow[flowState] ?? -1);
   const [presentedIndex, setPresentedIndex] = useState(engineIndex);
   const [transitionPhase, setTransitionPhase] = useState("steady");
   const queueTimerRef = useRef(0);
@@ -70,16 +70,24 @@ function StageRail({ flowState, progress, reduceMotion }) {
           if (index === presentedIndex && transitionPhase === "completing") state = "completing";
           if (index === presentedIndex && transitionPhase === "activating") state = "activating";
           const localProgress = state === "done" ? 1 : state === "active" ? Math.max(0.16, Math.min(0.98, (progress % 20) / 20 + 0.16)) : 0;
-          const stateLabel = state === "done" ? "已完成" : state === "completing" ? "收束完成" : state === "activating" ? "正在进入" : state === "active" ? "进行中" : "等待中";
+          const stageDetail = stage.id === 4
+            ? flowState === "Repairing" ? "修复中" : flowState === "ResultReady" || desktopStarted ? "修复完成" : "等待用户决定"
+            : stage.id === 5 && desktopStarted && flowState !== "ResultReady" ? "桌面端已启动，正在核验" : stage.detail;
+          const stateLabel = stage.id === 4 && state === "active" && flowState === "AwaitingDecision"
+            ? "等待决定"
+            : stage.id === 4 && state === "active" && flowState === "Repairing"
+              ? "修复中"
+              : stage.id === 5 && state === "active" && desktopStarted
+                ? "正在核验"
+                : state === "done" ? "已完成" : state === "completing" ? "收束完成" : state === "activating" ? "正在进入" : state === "active" ? "进行中" : "等待中";
           return (
             <li key={stage.id} className={`stage-${state}`} data-interaction="status-driven" title="由流程状态与全局进度驱动，不是导航或修复按钮">
               <StageProgressOrbit index={stage.id} state={state === "completing" ? "active" : state === "activating" ? "active" : state} progress={state === "completing" ? 1 : state === "activating" ? 0.35 : localProgress} reduceMotion={reduceMotion} />
-              <div><strong>{stage.title}</strong><small>{stateLabel} · {stage.detail}</small></div>
+              <div><strong>{stage.title}</strong><small>{stateLabel} · {stageDetail}</small></div>
             </li>
           );
         })}
       </ol>
-      <p className="stage-interaction-note">engineStageState → presentedStageState 有界缓冲；数字、环绕动画与三态语义保持。</p>
     </aside>
   );
 }
@@ -192,6 +200,68 @@ function runtimeLog(entry) {
   };
 }
 
+const runtimePluginDefaults = Object.freeze({
+  browser: { state: "等待诊断", risk: "待检测", tone: "neutral", evidence: "尚未收到本轮 Browser 证据" },
+  chrome: { state: "等待诊断", risk: "待检测", tone: "neutral", evidence: "尚未收到本轮 Chrome 证据" },
+  "computer-use": { state: "等待诊断", risk: "待检测", tone: "neutral", evidence: "尚未收到本轮 Computer Use 证据" },
+});
+
+function freshRuntimePluginStates(state = "等待诊断", evidencePrefix = "尚未收到本轮") {
+  return Object.fromEntries(Object.entries(runtimePluginDefaults).map(([id, value]) => [id, {
+    ...value,
+    state,
+    evidence: `${evidencePrefix} ${id === "computer-use" ? "Computer Use" : id[0].toUpperCase() + id.slice(1)} 证据`,
+  }]));
+}
+
+function updatePluginStatesFromLogs(current, entries, phase) {
+  const next = { ...current };
+  for (const entry of entries) {
+    const message = String(entry?.message ?? entry?.text ?? entry?.detail ?? "");
+    const category = String(entry?.category ?? entry?.component ?? entry?.scope ?? "");
+    const searchable = `${category} ${message}`;
+    const ids = [];
+    if (/\bbrowser\b/i.test(searchable)) ids.push("browser");
+    if (/\bchrome\b/i.test(searchable)) ids.push("chrome");
+    if (/computer[- ]use|\bcua\b/i.test(searchable)) ids.push("computer-use");
+    if (!ids.length) continue;
+    const failed = /\b(?:error|failed|missing|unavailable|invalid|stale|drift|mismatch|denied)\b/i.test(searchable);
+    const warned = !failed && /\b(?:warn|warning|repair|restore|rebuild|refresh)\b/i.test(searchable);
+    const passed = !failed && !warned && /\b(?:ok|pass|passed|healthy|ready|official|current|validated|verified)\b/i.test(searchable);
+    const evidence = message.replace(/^\[[^\]]+\]\s*/g, "").slice(0, 110) || `${category} 状态更新`;
+    for (const id of ids) {
+      next[id] = failed
+        ? { state: phase === "repair" ? "正在修复" : "发现问题", risk: "需处理", tone: "error", evidence }
+        : warned
+          ? { state: phase === "repair" ? "正在修复" : "需要关注", risk: "中", tone: "warn", evidence }
+          : passed
+            ? { state: phase === "repair" ? "修复中" : "静态正常", risk: "低", tone: "ok", evidence }
+            : { ...next[id], state: phase === "repair" ? "修复中" : "诊断中", evidence };
+    }
+  }
+  return next;
+}
+
+function finalizePluginStatesFromReport(current, report) {
+  const issues = Array.isArray(report?.issues) ? report.issues : [];
+  const broadIssue = issues.find((issue) => /marketplace|plugin-cache|runtime-node-repl/i.test(String(issue?.category ?? "")));
+  return Object.fromEntries(Object.entries(current).map(([id, value]) => {
+    const matcher = id === "computer-use" ? /computer[- ]use|\bcua\b/i : new RegExp(`\\b${id}\\b`, "i");
+    const issue = issues.find((candidate) => matcher.test(JSON.stringify(candidate))) ?? broadIssue;
+    if (issue) {
+      const risk = String(issue.risk ?? "unknown");
+      return [id, {
+        state: issue.suggestionMode === "suggest-repair" ? "建议修复" : "需要关注",
+        risk: risk === "high" || risk === "critical" ? "高" : risk === "medium" ? "中" : "待核验",
+        tone: risk === "high" || risk === "critical" ? "error" : "warn",
+        evidence: String(issue.evidence?.[0] ?? issue.impact ?? "诊断报告包含相关问题").slice(0, 110),
+      }];
+    }
+    if (value.tone !== "neutral") return [id, value];
+    return [id, { state: "静态诊断完成", risk: "低", tone: "ok", evidence: "本轮静态诊断未报告该插件异常" }];
+  }));
+}
+
 const repairEligibilityLabels = {
   "start-repair-unavailable": "运行时未提供 startRepair",
   "engine-events-unavailable": "运行时未提供 onEngineEvent",
@@ -289,18 +359,20 @@ function RepairReport({ onClose, report, runtimeMode, canRepair, canOpenGPT, onC
   );
 }
 
-function PluginPanel({ pluginColors = ["#4de0a2", "#ffc05b", "#58b7ff"], visibility = {}, runtimeMode = false }) {
+function PluginPanel({ pluginColors = ["#4de0a2", "#ffc05b", "#58b7ff"], visibility = {}, runtimeMode = false, runtimePluginStates = runtimePluginDefaults }) {
   return (
     <aside className="plugin-panel" aria-label="Browser、Chrome、Computer Use 独立状态">
       <header><span>插件状态</span><small>独立证据，不聚合</small></header>
       <div className="plugin-list">
-        {pluginStates.map((plugin, index) => (
-          <article key={plugin.id} className={`plugin-card tone-${runtimeMode ? "neutral" : plugin.tone} ${visibility[plugin.id] === false ? "is-summary-only" : ""}`} style={{ "--plugin-identity": pluginColors[index] ?? ["#4de0a2", "#ffc05b", "#58b7ff"][index] }}>
+        {pluginStates.map((plugin, index) => {
+          const liveState = runtimeMode ? (runtimePluginStates[plugin.id] ?? runtimePluginDefaults[plugin.id]) : plugin;
+          return (
+          <article key={plugin.id} className={`plugin-card tone-${liveState.tone} ${visibility[plugin.id] === false ? "is-summary-only" : ""}`} style={{ "--plugin-identity": pluginColors[index] ?? ["#4de0a2", "#ffc05b", "#58b7ff"][index] }}>
             <div className="plugin-icon"><OfficialPluginIcon pluginId={plugin.id} color={pluginColors[index] ?? ["#4de0a2", "#ffc05b", "#58b7ff"][index]} /></div>
-            <div className="plugin-copy"><strong>{plugin.name}</strong><span>{runtimeMode ? "等待只读诊断" : plugin.state}</span><small>{runtimeMode ? "图标可用性不代表插件健康状态" : plugin.evidence}</small></div>
-            <div className="plugin-risk"><span>风险</span><b>{runtimeMode ? "待报告" : plugin.risk}</b></div>
+            <div className="plugin-copy"><strong>{plugin.name}</strong><span>{liveState.state}</span><small>{liveState.evidence}</small></div>
+            <div className="plugin-risk"><span>风险</span><b>{liveState.risk}</b></div>
           </article>
-        ))}
+        )})}
       </div>
       <div className="plugin-evidence-note"><Icon name="shield" size={15} /><span>静态、连接、真实交互分开判定</span></div>
     </aside>
@@ -505,6 +577,8 @@ export default function RecoveryWindow({ scheme, onSchemeChange, mix, setMix, se
   const [runtimeInfo, setRuntimeInfo] = useState(() => ({ realRepairEnabled: false, capabilities: {} }));
   const [operationBusy, setOperationBusy] = useState(false);
   const [runtimeError, setRuntimeError] = useState("");
+  const [desktopStarted, setDesktopStarted] = useState(false);
+  const [runtimePluginStates, setRuntimePluginStates] = useState(() => freshRuntimePluginStates());
   const gearRef = useRef(null);
   const themePanelRef = useRef(null);
   const progressSliderRef = useRef(null);
@@ -569,7 +643,10 @@ export default function RecoveryWindow({ scheme, onSchemeChange, mix, setMix, se
     initialReport.then((report) => {
       if (!active) return;
       setRuntimeReport(report);
-      if (report) setFlowState("AwaitingDecision");
+      if (report) {
+        setRuntimePluginStates((current) => finalizePluginStatesFromReport(current, report));
+        setFlowState("AwaitingDecision");
+      }
     }).catch((error) => {
       if (!active) return;
       const message = error instanceof Error ? error.message : String(error);
@@ -588,6 +665,11 @@ export default function RecoveryWindow({ scheme, onSchemeChange, mix, setMix, se
         setRuntimeError(message);
         setLogs((current) => [...current, runtimeLog({ level: normalized.cancelled ? "warn" : "error", category: "runtime", message })].slice(-Math.max(40, Number(logLimitRef.current) || 80)));
         setOperationBusy(false);
+        if (operationKindRef.current === "repair") {
+          setRuntimePluginStates((current) => Object.fromEntries(Object.entries(current).map(([id, value]) => [id, value.state === "修复中" || value.state === "正在修复"
+            ? { ...value, state: "修复中断", risk: "需复查", tone: "warn", evidence: normalized.cancelled ? "修复已取消，状态需要重新诊断" : "修复未完成，请查看终端英文错误" }
+            : value])));
+        }
         setFlowState(operationKindRef.current === "repair" ? "AwaitingDecision" : "ReportReady");
         operationKindRef.current = null;
         return;
@@ -610,6 +692,13 @@ export default function RecoveryWindow({ scheme, onSchemeChange, mix, setMix, se
         }
         if (operationKind === "repair") {
           if (normalized.verified) {
+            setRuntimePluginStates((current) => Object.fromEntries(Object.entries(current).map(([id, value]) => [id, {
+              ...value,
+              state: "静态核验通过",
+              risk: "低",
+              tone: "ok",
+              evidence: "修复完成，最终静态核验已通过",
+            }])));
             setProgress(100);
             setFlowState("ResultReady");
             setScreen("result");
@@ -634,6 +723,11 @@ export default function RecoveryWindow({ scheme, onSchemeChange, mix, setMix, se
       if (!active) return;
       const entries = batch?.entries;
       if (!Array.isArray(entries)) return;
+      const phase = operationKindRef.current;
+      if (entries.some((entry) => /\bDesktop started\b/i.test(String(entry?.message ?? entry?.text ?? entry?.detail ?? "")))) {
+        setDesktopStarted(true);
+      }
+      setRuntimePluginStates((current) => updatePluginStatesFromLogs(current, entries, phase));
       const dropped = Number(batch.droppedBeforeBatch) > 0
         ? [runtimeLog({ level: "warn", category: "logs", message: `为控制内存，已丢弃更早的 ${Number(batch.droppedBeforeBatch)} 条日志。` })]
         : [];
@@ -790,6 +884,8 @@ export default function RecoveryWindow({ scheme, onSchemeChange, mix, setMix, se
     setFlowState("Diagnosing");
     setProgressMode("determinate");
     setProgress(0);
+    setDesktopStarted(false);
+    setRuntimePluginStates(freshRuntimePluginStates("诊断中", "正在收集本轮"));
     setRuntimeReport(null);
     setRuntimeRepairResult(null);
     setReportOpen(false);
@@ -798,6 +894,7 @@ export default function RecoveryWindow({ scheme, onSchemeChange, mix, setMix, se
       const report = await runtimeController.runDiagnosis();
       setRuntimeReport(report);
       if (report) {
+        setRuntimePluginStates((current) => finalizePluginStatesFromReport(current, report));
         setFlowState("AwaitingDecision");
         setReportOpen(true);
       } else {
@@ -834,6 +931,7 @@ export default function RecoveryWindow({ scheme, onSchemeChange, mix, setMix, se
       const report = await runtimeController.getDiagnosisReport();
       setRuntimeReport(report);
       if (report) {
+        setRuntimePluginStates((current) => finalizePluginStatesFromReport(current, report));
         setReportOpen(true);
         setFlowState("AwaitingDecision");
       } else {
@@ -865,6 +963,14 @@ export default function RecoveryWindow({ scheme, onSchemeChange, mix, setMix, se
     setScreen("diagnosis");
     setFlowState("Repairing");
     setProgress(0);
+    setDesktopStarted(false);
+    setRuntimePluginStates((current) => Object.fromEntries(Object.entries(current).map(([id, value]) => [id, {
+      ...value,
+      state: "修复中",
+      risk: value.tone === "ok" ? "低" : "处理中",
+      tone: value.tone === "ok" ? "ok" : "warn",
+      evidence: value.tone === "ok" ? "等待修复后静态复核" : "正在应用本轮受控修复",
+    }])));
     appendRuntimeMessage("warn", "repair", "用户已确认，开始受控修复；备份由冻结修复序列创建。 ");
     try {
       const result = await runtimeController.startRepair(runtimeReport.reportId);
@@ -896,11 +1002,11 @@ export default function RecoveryWindow({ scheme, onSchemeChange, mix, setMix, se
         {recoveryStates.map((state, index) => <div key={state.id} className={`${flowState === state.id ? "is-current" : ""} ${state.write ? "is-write-state" : ""}`} aria-current={flowState === state.id ? "step" : undefined}><b>{state.id}</b><small>{state.label}</small>{index < recoveryStates.length - 1 ? <i>›</i> : null}</div>)}
       </div>
       <div className="recovery-body">
-        <StageRail flowState={flowState} progress={progress} reduceMotion={settings.reduceMotion} />
+        <StageRail flowState={flowState} progress={progress} reduceMotion={settings.reduceMotion} desktopStarted={desktopStarted} />
         <main className="recovery-main">
           {screen === "result" ? <ResultPage runtimeMode={runtimeMode} report={runtimeReport} repairResult={runtimeRepairResult} canOpenLogs={Boolean(runtimeController?.capabilities.openLogs)} canOpenGPT={Boolean(runtimeController?.capabilities.openGPT)} onBack={() => { setDemoSession((current) => current + 1); if (!runtimeMode) { setProgress(68); setFlowState("AwaitingDecision"); } setScreen("diagnosis"); }} onOpenLogs={() => runtimeMode ? runRuntimeAction(() => runtimeController.openLogs(), "logs") : null} onOpenGPT={() => runtimeMode ? runRuntimeAction(() => runtimeController.openGPT(), "gpt") : null} /> : <><DiagnosisBrief flowState={flowState} report={runtimeReport} runtimeMode={runtimeMode}/><TerminalPanel logs={logs} limit={Math.max(40, Number(settings.logLimit) || 80)} /></>}
         </main>
-        <PluginPanel pluginColors={mix.pluginColors} visibility={settings.pluginVisibility} runtimeMode={runtimeMode} />
+        <PluginPanel pluginColors={mix.pluginColors} visibility={settings.pluginVisibility} runtimeMode={runtimeMode} runtimePluginStates={runtimePluginStates} />
       </div>
       <section className="progress-action-zone">
         <div className="fluid-demo-column">

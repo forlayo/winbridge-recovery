@@ -24,6 +24,19 @@ test('opening GPT cancels the owned repair tree first', () => {
   assert.match(mainSource, /const result = await manager\.request\('gpt\.open'\);[\s\S]*setImmediate\(\(\) => app\.quit\(\)\);[\s\S]*launcherClosing: true/);
 });
 
+test('runtime UI advances plugin evidence live and keeps post-start verification in stage five', () => {
+  const source = fs.readFileSync(path.join(projectRoot, '..', 'design-lab', 'src', 'components', 'RecoveryWindow.jsx'), 'utf8');
+  const mockSource = fs.readFileSync(path.join(projectRoot, '..', 'design-lab', 'src', 'lib', 'runtimeBridgeMock.js'), 'utf8');
+  assert.match(source, /AwaitingDecision: 3/);
+  assert.match(source, /desktopStarted \? 4/);
+  assert.match(source, /\\bDesktop started\\b/);
+  assert.match(source, /updatePluginStatesFromLogs\(current, entries, phase\)/);
+  assert.match(source, /flowState === "Repairing" \? "修复中"/);
+  assert.doesNotMatch(source, /engineStageState → presentedStageState/);
+  assert.match(mockSource, /Desktop started\. Waiting for two consecutive clean reconciliation checks/);
+  assert.match(mockSource, /await wait\(2200\)/);
+});
+
 test('read-only pool respects its concurrency cap and preserves result order', async () => {
   let active = 0;
   let peak = 0;
