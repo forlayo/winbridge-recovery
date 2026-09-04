@@ -8,6 +8,7 @@ const API_METHODS = Object.freeze([
   "getDiagnosisReport",
   "startRepair",
   "cancelOperation",
+  "exportSupportBundle",
   "openLogs",
   "openGPT",
   "getPluginAssets",
@@ -97,6 +98,7 @@ export function createRuntimeController(bridge) {
       return requireMethod(bridge, "startRepair")(reportId);
     },
     cancelOperation: () => requireMethod(bridge, "cancelOperation")(),
+    exportSupportBundle: () => requireMethod(bridge, "exportSupportBundle")({ confirmed: true }),
     openLogs: () => requireMethod(bridge, "openLogs")(),
     openGPT: () => requireMethod(bridge, "openGPT")(),
     getPluginAssets: () => requireMethod(bridge, "getPluginAssets")(),

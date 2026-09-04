@@ -439,6 +439,9 @@ button:disabled { cursor: default; opacity: .55; }
 .plugin-risk { display: grid; justify-items: end; gap: 2px; }
 .plugin-risk span { color: var(--app-faint); font-size: calc(7px * var(--ui-font-scale, 1.20)); }
 .plugin-risk b { font-size: calc(8px * var(--ui-font-scale, 1.20)); }
+.plugin-layers { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding-top: 5px; border-top: 1px solid var(--app-border); }
+.plugin-layers span { display: grid; gap: 1px; min-width: 0; color: var(--app-muted); font-size: calc(6.4px * var(--ui-font-scale, 1.20)); line-height: 1.2; }
+.plugin-layers b { color: var(--app-faint); font-size: calc(6.2px * var(--ui-font-scale, 1.20)); font-weight: 700; }
 .tone-ok { border-color: color-mix(in srgb, var(--app-ok) 27%, var(--app-border)); }
 .tone-ok .plugin-risk b { color: var(--app-ok); }
 .tone-warn { border-color: color-mix(in srgb, var(--app-warn) 31%, var(--app-border)); }
@@ -654,6 +657,19 @@ button:disabled { cursor: default; opacity: .55; }
 .report-freeze b { color: var(--app-warn); }
 .repair-report > footer { display: flex; justify-content: flex-end; gap: 6px; padding: 9px 12px; border-top: 1px solid var(--app-border); }
 .repair-report > footer button { min-height: 29px; font-size: calc(8px * var(--ui-font-scale, 1.20)); }
+.support-bundle-dialog { display: flex; flex-direction: column; width: min(560px, 92%); max-height: calc(100% - 8px); overflow: hidden; border: 1px solid var(--app-border-strong); border-radius: calc(var(--app-radius) + 2px); color: var(--app-text); background: var(--app-surface); box-shadow: 0 28px 80px rgba(0,0,0,.58); }
+.support-bundle-dialog > header { display: flex; align-items: center; justify-content: space-between; min-height: 46px; padding: 7px 10px 7px 13px; border-bottom: 1px solid var(--app-border); }
+.support-bundle-dialog > header > div { display: flex; align-items: center; gap: 8px; }
+.support-bundle-dialog > header > div > div { display: grid; gap: 2px; }
+.support-bundle-dialog > header strong { font-size: calc(10px * var(--ui-font-scale, 1.20)); }
+.support-bundle-dialog > header span { color: var(--app-muted); font-size: calc(7px * var(--ui-font-scale, 1.20)); }
+.support-bundle-dialog > header button { display: grid; place-items: center; width: 28px; height: 27px; border: 0; border-radius: 5px; color: var(--app-muted); background: transparent; }
+.support-bundle-copy { overflow: auto; padding: 14px 16px; color: var(--app-muted); font-size: calc(8px * var(--ui-font-scale, 1.20)); line-height: 1.55; }
+.support-bundle-copy p { margin: 0 0 10px; }
+.support-bundle-copy ul { display: grid; gap: 7px; margin: 0; padding-left: 19px; }
+.support-bundle-copy li::marker { color: var(--app-accent); }
+.support-bundle-dialog > footer { display: flex; justify-content: flex-end; gap: 6px; padding: 9px 12px; border-top: 1px solid var(--app-border); }
+.support-bundle-dialog > footer button { min-height: 29px; font-size: calc(8px * var(--ui-font-scale, 1.20)); }
 
 .result-page { display: grid; align-content: start; gap: 9px; height: 100%; min-height: 353px; padding: 10px; border: 1px solid var(--app-border); border-radius: var(--app-radius); background: var(--app-panel); }
 .result-hero { display: flex; gap: 10px; align-items: center; padding: 10px; border: 1px solid color-mix(in srgb, var(--app-ok) 22%, var(--app-border)); border-radius: var(--app-control-radius); background: color-mix(in srgb, var(--app-ok) 5%, transparent); }
@@ -1380,7 +1396,7 @@ button:disabled { cursor: default; opacity: .55; }
 .palette-blue-white .terminal-panel { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--token-border) 45%, transparent); }
 
 .settings-backdrop { position:fixed; z-index:1000; inset:0; display:grid; place-items:center; padding:18px; background:color-mix(in srgb, var(--token-window) 58%, transparent); backdrop-filter:blur(10px); }
-.gear-menu, .theme-submenu, .settings-window, .json-dialog, .game-chooser, .reference-dialog, .repair-report { color: var(--token-text); background: var(--token-page); border-color: var(--token-border); box-shadow: 0 24px 70px var(--token-shadow); }
+.gear-menu, .theme-submenu, .settings-window, .json-dialog, .game-chooser, .reference-dialog, .repair-report, .support-bundle-dialog { color: var(--token-text); background: var(--token-page); border-color: var(--token-border); box-shadow: 0 24px 70px var(--token-shadow); }
 .gear-menu button, .theme-submenu button, .settings-titlebar, .settings-sidebar, .settings-footer, .json-dialog > footer { color: var(--token-text); background: var(--token-panel); border-color: var(--token-border); }
 .gear-menu button:hover, .theme-submenu button:hover, button:hover:not(:disabled) { background-color: var(--token-hover); border-color: color-mix(in srgb, var(--app-accent) 28%, var(--token-border)); }
 .json-dialog pre { color: var(--token-terminal-text); background: var(--token-terminal-surface); }
@@ -1409,6 +1425,7 @@ button:disabled { cursor: default; opacity: .55; }
 
 .runtime-mode { width:100vw; height:100vh; overflow:hidden; }
 .runtime-mode .lab-main, .runtime-mode .workspace-grid, .runtime-mode .preview-workspace, .runtime-mode .app-stage { width:100%; height:100%; min-height:0; margin:0; padding:0; border:0; overflow:hidden; }
+.runtime-mode .app-stage { overflow: clip; }
 .runtime-mode .recovery-window { width:100%; height:100%; min-height:100%; border-radius:0; border:0; }
 .runtime-mode .recovery-titlebar {
   min-height: max(53px, env(titlebar-area-height, 53px));
@@ -1420,10 +1437,18 @@ button:disabled { cursor: default; opacity: .55; }
   /* Keep every shell reachable when the window is shorter than the dense
      desktop composition; the content scrolls instead of being hidden below
      the command dock. */
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
+  min-height: 0;
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: hidden;
   scrollbar-width: thin;
   scrollbar-color: var(--app-border-strong) transparent;
+}
+.runtime-mode .recovery-body {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 .runtime-mode .diagnosis-brief {
   max-height: none;

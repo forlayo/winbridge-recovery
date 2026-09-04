@@ -202,14 +202,27 @@ function runtimeLog(entry) {
 }
 
 const runtimePluginDefaults = Object.freeze({
-  browser: { state: "等待诊断", risk: "待检测", tone: "neutral", evidence: "尚未收到本轮 Browser 证据" },
-  chrome: { state: "等待诊断", risk: "待检测", tone: "neutral", evidence: "尚未收到本轮 Chrome 证据" },
-  "computer-use": { state: "等待诊断", risk: "待检测", tone: "neutral", evidence: "尚未收到本轮 Computer Use 证据" },
+  browser: { state: "等待诊断", risk: "待检测", tone: "neutral", evidence: "尚未收到本轮 Browser 证据", layers: {
+    static: { state: "未验证", evidence: "等待文件、manifest 与 hash 证据" },
+    connection: { state: "未验证", evidence: "等待连接与 Native Host 证据" },
+    interaction: { state: "未经验证", evidence: "本轮未执行真实交互" },
+  } },
+  chrome: { state: "等待诊断", risk: "待检测", tone: "neutral", evidence: "尚未收到本轮 Chrome 证据", layers: {
+    static: { state: "未验证", evidence: "等待文件、manifest 与 hash 证据" },
+    connection: { state: "未验证", evidence: "等待连接与 Native Host 证据" },
+    interaction: { state: "未经验证", evidence: "本轮未执行真实交互" },
+  } },
+  "computer-use": { state: "等待诊断", risk: "待检测", tone: "neutral", evidence: "尚未收到本轮 Computer Use 证据", layers: {
+    static: { state: "未验证", evidence: "等待文件、manifest 与 hash 证据" },
+    connection: { state: "未验证", evidence: "等待 helper transport 证据" },
+    interaction: { state: "未经验证", evidence: "client import 不等于真实交互" },
+  } },
 });
 
 function freshRuntimePluginStates(state = "等待诊断", evidencePrefix = "尚未收到本轮") {
   return Object.fromEntries(Object.entries(runtimePluginDefaults).map(([id, value]) => [id, {
     ...value,
+    layers: Object.fromEntries(Object.entries(value.layers).map(([layer, layerValue]) => [layer, { ...layerValue }])),
     state,
     evidence: `${evidencePrefix} ${id === "computer-use" ? "Computer Use" : id[0].toUpperCase() + id.slice(1)} 证据`,
   }]));
@@ -230,14 +243,26 @@ function updatePluginStatesFromLogs(current, entries, phase) {
     const warned = !failed && /\b(?:warn|warning|repair|restore|rebuild|refresh)\b/i.test(searchable);
     const passed = !failed && !warned && /\b(?:ok|pass|passed|healthy|ready|official|current|validated|verified)\b/i.test(searchable);
     const evidence = message.replace(/^\[[^\]]+\]\s*/g, "").slice(0, 110) || `${category} 状态更新`;
+    const layer = /native host|transport|connection|connected|registered|bridge|helper/i.test(searchable)
+      ? "connection"
+      : /manifest|marketplace|plugin|cache|hash|latest|runtime|file|version/i.test(searchable)
+        ? "static"
+        : null;
     for (const id of ids) {
+      const currentState = next[id] ?? runtimePluginDefaults[id];
+      const layerState = layer ? {
+        ...(currentState.layers?.[layer] ?? {}),
+        state: failed ? "发现问题" : warned ? "需要关注" : passed ? "已验证" : "检测中",
+        evidence,
+      } : null;
+      const layers = layer ? { ...currentState.layers, [layer]: layerState } : currentState.layers;
       next[id] = failed
-        ? { state: phase === "repair" ? "正在修复" : "发现问题", risk: "需处理", tone: "error", evidence }
+        ? { ...currentState, state: phase === "repair" ? "正在修复" : "发现问题", risk: "需处理", tone: "error", evidence, layers }
         : warned
-          ? { state: phase === "repair" ? "正在修复" : "需要关注", risk: "中", tone: "warn", evidence }
+          ? { ...currentState, state: phase === "repair" ? "正在修复" : "需要关注", risk: "中", tone: "warn", evidence, layers }
           : passed
-            ? { state: phase === "repair" ? "修复中" : "静态正常", risk: "低", tone: "ok", evidence }
-            : { ...next[id], state: phase === "repair" ? "修复中" : "诊断中", evidence };
+            ? { ...currentState, state: phase === "repair" ? "修复中" : "静态正常", risk: "低", tone: "ok", evidence, layers }
+            : { ...currentState, state: phase === "repair" ? "修复中" : "诊断中", evidence, layers };
     }
   }
   return next;
@@ -251,15 +276,33 @@ function finalizePluginStatesFromReport(current, report) {
     const issue = issues.find((candidate) => matcher.test(JSON.stringify(candidate))) ?? broadIssue;
     if (issue) {
       const risk = String(issue.risk ?? "unknown");
+      const layers = {
+        ...value.layers,
+        static: {
+          ...(value.layers?.static ?? {}),
+          state: issue.suggestionMode === "suggest-repair" ? "发现问题" : "需要关注",
+          evidence: String(issue.evidence?.[0] ?? issue.impact ?? "诊断报告包含相关问题").slice(0, 110),
+        },
+      };
       return [id, {
         state: issue.suggestionMode === "suggest-repair" ? "建议修复" : "需要关注",
         risk: risk === "high" || risk === "critical" ? "高" : risk === "medium" ? "中" : "待核验",
         tone: risk === "high" || risk === "critical" ? "error" : "warn",
         evidence: String(issue.evidence?.[0] ?? issue.impact ?? "诊断报告包含相关问题").slice(0, 110),
+        layers,
       }];
     }
     if (value.tone !== "neutral") return [id, value];
-    return [id, { state: "静态诊断完成", risk: "低", tone: "ok", evidence: "本轮静态诊断未报告该插件异常" }];
+    return [id, {
+      state: "静态诊断完成",
+      risk: "低",
+      tone: "ok",
+      evidence: "本轮静态诊断未报告该插件异常",
+      layers: {
+        ...value.layers,
+        static: { ...(value.layers?.static ?? {}), state: "已验证", evidence: "本轮静态诊断未报告该插件异常" },
+      },
+    }];
   }));
 }
 
@@ -371,11 +414,17 @@ function PluginPanel({ pluginColors = ["#4de0a2", "#ffc05b", "#58b7ff"], visibil
       <div className="plugin-list">
         {pluginStates.map((plugin, index) => {
           const liveState = runtimeMode ? (runtimePluginStates[plugin.id] ?? runtimePluginDefaults[plugin.id]) : plugin;
+          const layers = liveState.layers ?? runtimePluginDefaults[plugin.id].layers;
           return (
           <article key={plugin.id} className={`plugin-card tone-${liveState.tone} ${visibility[plugin.id] === false ? "is-summary-only" : ""}`} style={{ "--plugin-identity": pluginColors[index] ?? ["#4de0a2", "#ffc05b", "#58b7ff"][index] }}>
             <div className="plugin-icon"><OfficialPluginIcon pluginId={plugin.id} color={pluginColors[index] ?? ["#4de0a2", "#ffc05b", "#58b7ff"][index]} /></div>
             <div className="plugin-copy"><strong>{plugin.name}</strong><span>{liveState.state}</span><small>{liveState.evidence}</small></div>
             <div className="plugin-risk"><span>风险</span><b>{liveState.risk}</b></div>
+            <div className="plugin-layers" aria-label={`${plugin.name} 分层证据`}>
+              <span><b>静态</b>{layers.static?.state || "未验证"}</span>
+              <span><b>连接</b>{layers.connection?.state || "未验证"}</span>
+              <span><b>交互</b>{layers.interaction?.state || "未经验证"}</span>
+            </div>
           </article>
         )})}
       </div>
@@ -626,7 +675,20 @@ function SocialFeed({ onClose, runtimeMode, runtimeController, settings, appeara
   );
 }
 
-function ResultPage({ onBack, onOpenLogs, onOpenGPT, runtimeMode, canOpenLogs, canOpenGPT, report, repairResult }) {
+function SupportBundleDialog({ onClose, onConfirm, busy }) {
+  return createPortal(
+    <div className="inner-modal-backdrop">
+      <section className="support-bundle-dialog" role="dialog" aria-modal="true" aria-label="导出诊断支持包">
+        <header><div><Icon name="shield" size={18}/><div><strong>导出诊断支持包</strong><span>只读生成 · 本地脱敏 · 不会上传</span></div></div><button type="button" aria-label="关闭支持包说明" onClick={onClose}><Icon name="close" size={16}/></button></header>
+        <div className="support-bundle-copy"><p>生成前请确认下面的内容清单。支持包只保存在本机，用于提交 Issue 时提供可复现证据。</p><ul><li>应用、Electron、Windows 架构与当前运行状态</li><li>结构化诊断报告、插件状态和冻结快照校验摘要</li><li>最近一段有界运行日志（自动脱敏并限制大小）</li><li>不包含账号、令牌、Cookie、认证文件、个人路径或官方插件 payload</li></ul></div>
+        <footer><button type="button" className="secondary-button" onClick={onClose}>取消</button><button type="button" className="primary-button" disabled={busy} onClick={onConfirm}>{busy ? "正在生成…" : "确认并生成"}</button></footer>
+      </section>
+    </div>,
+    document.body
+  );
+}
+
+function ResultPage({ onBack, onOpenLogs, onOpenGPT, onRequestSupportBundle, runtimeMode, canOpenLogs, canOpenGPT, canExportSupportBundle, report, repairResult }) {
   const summary = issueSummary(report);
   const firstIssue = summary.first;
   const runtimeCards = [
@@ -653,7 +715,7 @@ function ResultPage({ onBack, onOpenLogs, onOpenGPT, runtimeMode, canOpenLogs, c
         <div><h4>执行结果</h4><p>{runtimeMode ? (repairResult?.finalVerificationPassed === true ? "运行时返回 finalVerificationPassed=true；页面保持停留供用户核对。" : "未收到合规的最终核验结果，不推断成功。") : "此处仅为信息架构演示；概念站未执行真实替换、注册或核验。"}</p></div>
         <div><h4>证据与日志</h4><p>{runtimeMode ? "完整证据由运行时有界事件和应用日志保留；UI 不读取或展示本地路径。" : "保留修复前后哈希、操作阶段、风险和 GitHub 已知问题映射入口。"}</p></div>
       </div>
-      <footer><button type="button" className="secondary-button" onClick={onBack}>返回诊断页</button><button type="button" className="secondary-button" disabled={runtimeMode && !canOpenLogs} onClick={onOpenLogs}>打开完整日志{runtimeMode ? (canOpenLogs ? "" : "（不可执行）") : "（概念）"}</button><button type="button" className="primary-button" disabled={runtimeMode && !canOpenGPT} onClick={onOpenGPT}>直接打开 GPT{runtimeMode ? (canOpenGPT ? "" : "（不可执行）") : "（概念）"}</button></footer>
+      <footer><button type="button" className="secondary-button" onClick={onBack}>返回诊断页</button><button type="button" className="secondary-button" disabled={runtimeMode && !canOpenLogs} onClick={onOpenLogs}>打开完整日志{runtimeMode ? (canOpenLogs ? "" : "（不可执行）") : "（概念）"}</button><button type="button" className="secondary-button" disabled={!canExportSupportBundle} onClick={onRequestSupportBundle}>导出诊断支持包</button><button type="button" className="primary-button" disabled={runtimeMode && !canOpenGPT} onClick={onOpenGPT}>直接打开 GPT{runtimeMode ? (canOpenGPT ? "" : "（不可执行）") : "（概念）"}</button></footer>
     </section>
   );
 }
@@ -665,6 +727,8 @@ export default function RecoveryWindow({ scheme, onSchemeChange, mix, setMix, se
   // Future auto-close integration: suppress window close while this local game surface is active.
   const [gameActive, setGameActive] = useState(false);
   const [socialOpen, setSocialOpen] = useState(false);
+  const [supportBundleOpen, setSupportBundleOpen] = useState(false);
+  const [supportBundleBusy, setSupportBundleBusy] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [themeOpen, setThemeOpen] = useState(false);
   const [screen, setScreen] = useState("diagnosis");
@@ -1088,6 +1152,25 @@ export default function RecoveryWindow({ scheme, onSchemeChange, mix, setMix, se
     }
   };
 
+  const requestSupportBundle = () => {
+    if (!runtimeMode || !runtimeController?.capabilities.exportSupportBundle) {
+      appendRuntimeMessage("warn", "support-bundle", "当前运行时未提供支持包导出能力。 ");
+      return;
+    }
+    setSupportBundleOpen(true);
+  };
+
+  const confirmSupportBundle = async () => {
+    if (!runtimeController?.capabilities.exportSupportBundle || supportBundleBusy) return;
+    setSupportBundleBusy(true);
+    const result = await runRuntimeAction(() => runtimeController.exportSupportBundle(), "support-bundle");
+    setSupportBundleBusy(false);
+    if (result?.created) {
+      setSupportBundleOpen(false);
+      appendRuntimeMessage("info", "support-bundle", `支持包已生成：${result.fileName || "本地文件"}（已脱敏，${result.bytes || 0} 字节）。`);
+    }
+  };
+
   const repairEligibility = runtimeController?.getRepairEligibility(runtimeReport?.reportId) ?? { allowed: false, reason: "runtime-unavailable" };
   const canRepair = Boolean(runtimeInfo.realRepairEnabled && repairEligibility.allowed && !operationBusy);
   const waitingForDiagnosis = runtimeMode && !runtimeReport && !operationBusy && !flowState;
@@ -1106,7 +1189,7 @@ export default function RecoveryWindow({ scheme, onSchemeChange, mix, setMix, se
       <div className="recovery-body">
         <StageRail flowState={flowState} progress={progress} reduceMotion={settings.reduceMotion} desktopStarted={desktopStarted} />
         <main className="recovery-main">
-          {screen === "result" ? <ResultPage runtimeMode={runtimeMode} report={runtimeReport} repairResult={runtimeRepairResult} canOpenLogs={Boolean(runtimeController?.capabilities.openLogs)} canOpenGPT={Boolean(runtimeController?.capabilities.openGPT)} onBack={() => { setDemoSession((current) => current + 1); if (!runtimeMode) { setProgress(68); setFlowState("AwaitingDecision"); } setScreen("diagnosis"); }} onOpenLogs={() => runtimeMode ? runRuntimeAction(() => runtimeController.openLogs(), "logs") : null} onOpenGPT={() => runtimeMode ? runRuntimeAction(() => runtimeController.openGPT(), "gpt") : null} /> : <><DiagnosisBrief flowState={flowState} report={runtimeReport} runtimeMode={runtimeMode}/><TerminalPanel logs={logs} limit={Math.max(40, Number(settings.logLimit) || 80)} /></>}
+          {screen === "result" ? <ResultPage runtimeMode={runtimeMode} report={runtimeReport} repairResult={runtimeRepairResult} canOpenLogs={Boolean(runtimeController?.capabilities.openLogs)} canOpenGPT={Boolean(runtimeController?.capabilities.openGPT)} canExportSupportBundle={runtimeMode && Boolean(runtimeController?.capabilities.exportSupportBundle)} onRequestSupportBundle={requestSupportBundle} onBack={() => { setDemoSession((current) => current + 1); if (!runtimeMode) { setProgress(68); setFlowState("AwaitingDecision"); } setScreen("diagnosis"); }} onOpenLogs={() => runtimeMode ? runRuntimeAction(() => runtimeController.openLogs(), "logs") : null} onOpenGPT={() => runtimeMode ? runRuntimeAction(() => runtimeController.openGPT(), "gpt") : null} /> : <><DiagnosisBrief flowState={flowState} report={runtimeReport} runtimeMode={runtimeMode}/><TerminalPanel logs={logs} limit={Math.max(40, Number(settings.logLimit) || 80)} /></>}
         </main>
         <PluginPanel pluginColors={mix.pluginColors} visibility={settings.pluginVisibility} runtimeMode={runtimeMode} runtimePluginStates={runtimePluginStates} />
       </div>
@@ -1154,7 +1237,7 @@ export default function RecoveryWindow({ scheme, onSchemeChange, mix, setMix, se
           <button type="button" disabled title="当前 preload 契约不提供独立回滚命令">回滚不可单独执行</button>
           <button type="button" className="repair-action" title={!runtimeMode ? "打开概念报告并演示用户确认入口" : canRepair ? "打开报告并由用户再次确认" : `当前不可修复：${repairEligibilityLabels[repairEligibility.reason] ?? repairEligibility.reason}`} onClick={() => setReportOpen(true)} disabled={runtimeMode ? !canRepair : false}>用户决定修复</button>
           <button type="button" onClick={runtimeMode ? cancelRuntimeOperation : undefined} disabled={!runtimeMode || !operationBusy || !runtimeController?.capabilities.cancelOperation}>取消当前操作</button>
-          {runtimeMode ? <button type="button" onClick={() => runRuntimeAction(() => runtimeController.openLogs(), "logs")} disabled={!runtimeController?.capabilities.openLogs}>打开日志</button> : null}
+          {runtimeMode ? <><button type="button" onClick={() => runRuntimeAction(() => runtimeController.openLogs(), "logs")} disabled={!runtimeController?.capabilities.openLogs}>打开日志</button><button type="button" onClick={requestSupportBundle} disabled={!runtimeController?.capabilities.exportSupportBundle}>导出支持包</button></> : null}
           {!runtimeMode ? <button type="button" className="result-action" onClick={() => { setScreen("result"); setFlowState("ResultReady"); setProgress(100); }}>预览结果页</button> : null}
           <button type="button" className="gpt-action" disabled={runtimeMode && !runtimeController?.capabilities.openGPT} onClick={() => runtimeMode ? runRuntimeAction(() => runtimeController.openGPT(), "gpt") : null}>直接打开 GPT{runtimeMode && !runtimeController?.capabilities.openGPT ? "（不可执行）" : ""}</button>
         </div>
@@ -1162,6 +1245,7 @@ export default function RecoveryWindow({ scheme, onSchemeChange, mix, setMix, se
       {gamesOpen ? <GameCenter onClose={() => setGamesOpen(false)} onGameActiveChange={setGameActive} appearanceClass={`palette-${paletteClass} material-${mix.material}`} appearanceStyle={glassStyle} /> : null}
       {reportOpen ? <RepairReport onClose={() => setReportOpen(false)} report={runtimeReport} runtimeMode={runtimeMode} canRepair={canRepair} canOpenGPT={Boolean(runtimeController?.capabilities.openGPT)} onConfirmRepair={startRuntimeRepair} onOpenGPT={() => runtimeMode ? runRuntimeAction(() => runtimeController.openGPT(), "gpt") : setReportOpen(false)} /> : null}
       {socialOpen ? <SocialFeed onClose={() => setSocialOpen(false)} runtimeMode={runtimeMode} runtimeController={runtimeController} settings={settings} appearanceClass={`palette-${paletteClass} material-${mix.material}`} appearanceStyle={glassStyle} /> : null}
+      {supportBundleOpen ? <SupportBundleDialog onClose={() => { if (!supportBundleBusy) setSupportBundleOpen(false); }} onConfirm={confirmSupportBundle} busy={supportBundleBusy} /> : null}
       <SettingsCenter open={settingsOpen} onClose={() => setSettingsOpen(false)} scheme={scheme} onSchemeChange={onSchemeChange} mix={mix} setMix={setMix} settings={settings} setSettings={setSettings} onRestoreDefaults={onRestoreDefaults} onExportConfig={onExportConfig} onImportConfig={onImportConfig} runtimeMode={runtimeMode} bridgeAvailable={bridgeAvailable} runtimeSettingsHydrated={runtimeSettingsHydrated} runtimeSettingsError={runtimeSettingsError}/>
     </div>
   );
