@@ -12,6 +12,7 @@ const CHANNEL = Object.freeze({
   getDiagnosisReport: 'wb:get-diagnosis-report',
   startRepair: 'wb:start-repair',
   cancelOperation: 'wb:cancel-operation',
+  exportSupportBundle: 'wb:export-support-bundle',
   openLogs: 'wb:open-logs',
   openGPT: 'wb:open-gpt',
   getPluginAssets: 'wb:get-plugin-assets',
@@ -95,6 +96,13 @@ function openSocialRequest(value) {
   return { postId: socialPostId(input.postId) };
 }
 
+function supportBundleRequest(value = {}) {
+  const input = plainObject(value, 'supportBundleRequest');
+  allowedKeys(input, ['confirmed'], 'supportBundleRequest');
+  if (input.confirmed !== true) throw new TypeError('supportBundleRequest.confirmed must be true');
+  return { confirmed: true };
+}
+
 function subscribe(channel, callback) {
   if (typeof callback !== 'function') throw new TypeError('callback must be a function');
   const listener = (_event, payload) => callback(structuredClone(payload));
@@ -112,6 +120,7 @@ const api = Object.freeze({
   getDiagnosisReport: () => ipcRenderer.invoke(CHANNEL.getDiagnosisReport),
   startRepair: (id) => ipcRenderer.invoke(CHANNEL.startRepair, reportId(id)),
   cancelOperation: () => ipcRenderer.invoke(CHANNEL.cancelOperation),
+  exportSupportBundle: (request) => ipcRenderer.invoke(CHANNEL.exportSupportBundle, supportBundleRequest(request)),
   openLogs: () => ipcRenderer.invoke(CHANNEL.openLogs),
   openGPT: () => ipcRenderer.invoke(CHANNEL.openGPT),
   getPluginAssets: () => ipcRenderer.invoke(CHANNEL.getPluginAssets),

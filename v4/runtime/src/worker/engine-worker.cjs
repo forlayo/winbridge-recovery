@@ -12,6 +12,7 @@ const { EngineAdapter } = require('./engine-adapter.cjs');
 const { discoverInstalledGPT, openInstalledGPT } = require('./app-package-discovery.cjs');
 const { getPluginAssets } = require('./plugin-assets.cjs');
 const { SocialFeedService } = require('./social-feed-service.cjs');
+const { createSupportBundle } = require('./support-bundle.cjs');
 
 const dataRoot = path.resolve(process.env.WINBRIDGE_V4_DATA_ROOT || path.join(__dirname, '..', '..', 'runtime-data'));
 const engineRoot = path.resolve(process.env.WINBRIDGE_V4_ENGINE_ROOT || path.join(__dirname, '..', '..', 'engine', 'integrated-4.0.0'));
@@ -153,8 +154,33 @@ async function dispatch(command, payload) {
       return adapter.getLatestReport();
     case 'repair.start':
       return adapter.startRepair(validateReportId(payload));
+    case 'operation.status':
+      if (typeof payload !== 'string' || payload.length < 8 || payload.length > 128) throw new TypeError('operationId must be a bounded string');
+      return adapter.getOperationStatus(payload);
     case 'operation.cancel':
       return { cancelled: adapter.cancel() };
+    case 'support.bundle': {
+      if (payload?.confirmed !== true) throw new Error('Support bundle export requires explicit confirmation');
+      let snapshot = null;
+      try { snapshot = await adapter.verifySnapshot(); } catch (error) {
+        snapshot = { verified: false, reason: error.message };
+      }
+      const activeOperationId = adapter.active?.operationId || null;
+      return createSupportBundle({
+        dataRoot,
+        appInfo: {
+          name: 'WinBridge Recovery',
+          version: '4.0.0',
+          node: process.version,
+          electron: process.versions.electron || null,
+          runtimeMode: true,
+          testMode,
+        },
+        report: await adapter.getLatestReport(),
+        operationStatus: activeOperationId ? adapter.getOperationStatus(activeOperationId) : null,
+        engineSnapshot: snapshot,
+      });
+    }
     case 'logs.path':
       await fs.mkdir(path.dirname(logFile), { recursive: true });
       return { path: path.dirname(logFile) };
@@ -187,8 +213,9 @@ async function dispatch(command, payload) {
 
 function emitFixture(payload) {
   const operationId = String(payload?.operationId || 'fixture-operation-0001');
-  send({ type: 'engine-event', payload: { operationId, kind: 'Progress', actualProgress: 35, engineStageState: 'FixtureScan', presentedStageState: 'Diagnosing', message: 'Fixture progress.' } });
-  send({ type: 'engine-event', payload: { operationId, kind: 'ResultReady', actualProgress: 100, engineStageState: 'ResultReady', presentedStageState: 'ResultReady', message: 'Fixture complete.', finalVerificationPassed: true } });
+  adapter.recordOperationStart(operationId, 'fixture');
+  adapter.onEvent({ operationId, kind: 'Progress', actualProgress: 35, engineStageState: 'FixtureScan', presentedStageState: 'Diagnosing', message: 'Fixture progress.' });
+  adapter.onEvent({ operationId, kind: 'ResultReady', actualProgress: 100, engineStageState: 'ResultReady', presentedStageState: 'ResultReady', message: 'Fixture complete.', finalVerificationPassed: true });
   writeLog({ level: 'info', category: 'fixture', message: 'Synthetic fixture completed.', operationId });
   return { operationId };
 }

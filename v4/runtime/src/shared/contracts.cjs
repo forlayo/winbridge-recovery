@@ -13,6 +13,7 @@ const IPC = Object.freeze({
   GET_DIAGNOSIS_REPORT: 'wb:get-diagnosis-report',
   START_REPAIR: 'wb:start-repair',
   CANCEL_OPERATION: 'wb:cancel-operation',
+  EXPORT_SUPPORT_BUNDLE: 'wb:export-support-bundle',
   OPEN_LOGS: 'wb:open-logs',
   OPEN_GPT: 'wb:open-gpt',
   GET_PLUGIN_ASSETS: 'wb:get-plugin-assets',

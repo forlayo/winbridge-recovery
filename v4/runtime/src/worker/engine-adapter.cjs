@@ -78,7 +78,7 @@ async function loadCoreDiagnosisReport(sessionRoot, maxBytes = 1024 * 1024) {
 }
 
 class EngineAdapter {
-  constructor({ dataRoot, engineRoot, concurrency = 2, onEvent, onLog, registerChild, unregisterChild, realRepairEnabled = false }) {
+  constructor({ dataRoot, engineRoot, concurrency = 2, onEvent, onLog, registerChild, unregisterChild, realRepairEnabled = false, operationTimeoutMs = 30 * 60 * 1000 }) {
     this.dataRoot = dataRoot;
     this.engineRoot = engineRoot;
     this.concurrency = concurrency;
@@ -87,8 +87,71 @@ class EngineAdapter {
     this.registerChild = registerChild;
     this.unregisterChild = unregisterChild;
     this.realRepairEnabled = realRepairEnabled;
+    this.operationTimeoutMs = operationTimeoutMs;
     this.active = null;
     this.currentReport = null;
+    this.operations = new Map();
+    this.onEvent = (event) => {
+      this.recordOperationEvent(event);
+      onEvent(event);
+    };
+  }
+
+  recordOperationStart(operationId, kind, details = {}) {
+    const now = new Date().toISOString();
+    this.operations.set(operationId, {
+      operationId,
+      kind,
+      state: 'running',
+      actualProgress: 0,
+      engineStageState: 'Idle',
+      presentedStageState: kind === 'repair' ? 'Repairing' : 'Diagnosing',
+      message: 'Operation accepted.',
+      reason: 'accepted',
+      startedAt: now,
+      updatedAt: now,
+      finishedAt: null,
+      finalVerificationPassed: false,
+      ...details
+    });
+    while (this.operations.size > 32) this.operations.delete(this.operations.keys().next().value);
+  }
+
+  recordOperationEvent(event) {
+    const current = this.operations.get(event.operationId);
+    if (!current) return;
+    const terminal = ['Failed', 'Cancelled', 'ResultReady'].includes(event.kind);
+    const reason = event.details?.reason || current.reason;
+    const state = reason === 'timeout'
+      ? 'timed-out'
+      : reason === 'exit'
+        ? 'exited'
+        : event.kind === 'ResultReady'
+      ? 'completed'
+      : event.kind === 'Cancelled'
+        ? 'cancelled'
+        : event.kind === 'Failed' ? 'failed' : 'running';
+    const updatedAt = new Date().toISOString();
+    this.operations.set(event.operationId, {
+      ...current,
+      state,
+      actualProgress: Math.max(current.actualProgress, Number(event.actualProgress) || 0),
+      engineStageState: event.engineStageState || current.engineStageState,
+      presentedStageState: event.presentedStageState || current.presentedStageState,
+      message: event.message || current.message,
+      reason,
+      updatedAt,
+      finishedAt: terminal ? updatedAt : null,
+      finalVerificationPassed: Boolean(event.finalVerificationPassed)
+    });
+  }
+
+  getOperationStatus(operationId) {
+    if (typeof operationId !== 'string' || operationId.length < 8 || operationId.length > 128) {
+      throw new TypeError('operationId must be a bounded string');
+    }
+    const status = this.operations.get(operationId);
+    return status ? structuredClone(status) : null;
   }
 
   async verifySnapshot(signal) {
@@ -125,6 +188,7 @@ class EngineAdapter {
     const operationId = makeId('diagnosis');
     const controller = new AbortController();
     this.active = { operationId, controller, child: null };
+    this.recordOperationStart(operationId, 'diagnosis');
     this.currentReport = null;
     await fs.rm(path.join(this.dataRoot, 'reports', 'latest.json'), { force: true }).catch(() => {});
     try {
@@ -173,28 +237,59 @@ class EngineAdapter {
   async startRepair(reportId) {
     if (!this.realRepairEnabled) throw new Error('Real repair is disabled for this build');
     if (this.active) throw new Error('An engine operation is already active');
-    const report = await this.getLatestReport();
+    const report = this.currentReport ? validateDiagnosticReport(this.currentReport) : null;
     if (!report || report.reportId !== reportId) throw new Error('The selected diagnosis report is not current');
     if (Date.parse(report.expiresAt) <= Date.now()) throw new Error('The selected diagnosis report has expired');
     if (!report.issues.some((issue) => issue.suggestionMode === 'suggest-repair')) throw new Error('The report contains no approved repair suggestion');
     this.currentReport = null;
-    await fs.rm(path.join(this.dataRoot, 'reports', 'latest.json'), { force: true }).catch(() => {});
     const operationId = makeId('repair');
     const controller = new AbortController();
     this.active = { operationId, controller, child: null };
+    this.recordOperationStart(operationId, 'repair', { reportId });
+    void fs.rm(path.join(this.dataRoot, 'reports', 'latest.json'), { force: true }).catch(() => {});
+    const operation = this.runRepair({ operationId, reportId, controller });
+    operation.catch((error) => {
+      this.onLog({ level: 'error', category: 'repair', message: error.message, operationId });
+    });
+    return { operationId, reportId, accepted: true };
+  }
+
+  async runRepair({ operationId, reportId, controller }) {
+    const timeoutError = Object.assign(new Error('Repair operation timed out'), { code: 'WB_OPERATION_TIMEOUT' });
+    const timeout = setTimeout(() => controller.abort(timeoutError), this.operationTimeoutMs);
+    timeout.unref?.();
     try {
       const { sessionRoot } = await this.prepareSession(operationId, controller.signal);
       this.onEvent({ operationId, kind: 'Stage', actualProgress: 1, engineStageState: 'AwaitingFrozenCore', presentedStageState: 'Repairing', message: 'Starting the unchanged frozen repair sequence.' });
       const result = await this.runPowerShell(sessionRoot, 'RepairAndLaunch', operationId, controller.signal);
+      if (controller.signal.aborted) throw controller.signal.reason || new Error('Repair operation was cancelled');
       const verified = result.exitCode === 0 && [...result.stdout, ...result.stderr].some((line) => /static verification passed|verification.*passed/i.test(line));
-      if (!verified) throw new Error('Frozen core did not provide final verification evidence');
+      if (!verified) {
+        const error = new Error(result.exitCode === 0
+          ? 'Frozen core did not provide final verification evidence'
+          : `Frozen repair core exited with code ${result.exitCode}`);
+        if (result.exitCode !== 0) error.code = 'WB_ENGINE_EXIT';
+        throw error;
+      }
       this.onEvent({ operationId, kind: 'ResultReady', actualProgress: 100, engineStageState: 'ResultReady', presentedStageState: 'ResultReady', message: 'Frozen repair core completed final verification.', finalVerificationPassed: true, details: { reportId } });
       return { operationId, reportId, finalVerificationPassed: true };
     } catch (error) {
-      const cancelled = controller.signal.aborted;
-      this.onEvent({ operationId, kind: cancelled ? 'Cancelled' : 'Failed', actualProgress: 99, engineStageState: cancelled ? 'Cancelled' : 'Failed', presentedStageState: cancelled ? 'Cancelled' : 'Failed', message: cancelled ? 'Repair cancelled.' : error.message, finalVerificationPassed: false });
+      const timedOut = error?.code === 'WB_OPERATION_TIMEOUT' || controller.signal.reason?.code === 'WB_OPERATION_TIMEOUT';
+      const cancelled = !timedOut && controller.signal.aborted;
+      const reason = timedOut ? 'timeout' : cancelled ? 'cancelled' : error?.code === 'WB_ENGINE_EXIT' ? 'exit' : 'failure';
+      this.onEvent({
+        operationId,
+        kind: cancelled ? 'Cancelled' : 'Failed',
+        actualProgress: 99,
+        engineStageState: timedOut ? 'TimedOut' : cancelled ? 'Cancelled' : 'Failed',
+        presentedStageState: timedOut ? 'Failed' : cancelled ? 'Cancelled' : 'Failed',
+        message: timedOut ? 'Repair timed out.' : cancelled ? 'Repair cancelled.' : error.message,
+        finalVerificationPassed: false,
+        details: { reportId, reason, exitCode: Number.isInteger(error?.exitCode) ? error.exitCode : null }
+      });
       throw error;
     } finally {
+      clearTimeout(timeout);
       this.active = null;
     }
   }
@@ -256,6 +351,15 @@ class EngineAdapter {
       };
       const stdoutConsumer = createLineConsumer(stdout, 'info');
       const stderrConsumer = createLineConsumer(stderr, 'warn');
+      const heartbeat = setInterval(() => {
+        if (!settled) emitProgress();
+      }, 5000);
+      heartbeat.unref?.();
+      const cleanup = () => {
+        clearInterval(heartbeat);
+        signal.removeEventListener('abort', abort);
+        this.unregisterChild(child);
+      };
       child.stdout.on('data', stdoutConsumer.consume);
       child.stderr.on('data', stderrConsumer.consume);
       const abort = () => {
@@ -276,8 +380,7 @@ class EngineAdapter {
       child.once('error', (error) => {
         if (settled) return;
         settled = true;
-        signal.removeEventListener('abort', abort);
-        this.unregisterChild(child);
+        cleanup();
         reject(error);
       });
       child.once('exit', (code, exitSignal) => {
@@ -285,8 +388,7 @@ class EngineAdapter {
         settled = true;
         stdoutConsumer.flush();
         stderrConsumer.flush();
-        signal.removeEventListener('abort', abort);
-        this.unregisterChild(child);
+        cleanup();
         if (signal.aborted) return reject(signal.reason || new Error('Operation cancelled'));
         resolve({ exitCode: code ?? -1, signal: exitSignal, stdout, stderr });
       });

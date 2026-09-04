@@ -95,6 +95,113 @@ test('enabled launch capability cannot bypass current report, expiry, or categor
   await assert.rejects(() => adapter.startRepair(currentId), /no approved repair suggestion/);
 });
 
+test('repair acceptance returns an operation id before the long-running worker finishes', async () => {
+  const gatedRoot = path.join(testRoot, 'async-repair');
+  const events = [];
+  const adapter = new EngineAdapter({
+    dataRoot: gatedRoot,
+    engineRoot: path.join(projectRoot, 'engine', 'integrated-4.0.0'),
+    realRepairEnabled: true,
+    onEvent: (event) => events.push(event),
+    onLog: () => {},
+    registerChild: () => {},
+    unregisterChild: () => {}
+  });
+  const reportId = 'report-async-repair-0001';
+  adapter.currentReport = makeCurrentReport({
+    id: reportId,
+    expiresAt: new Date(Date.now() + 60000).toISOString(),
+    issues: [makeIssue('plugin-cache-drift', ['Synthetic drift'])]
+  });
+  adapter.prepareSession = async () => {
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    return { sessionRoot: path.join(gatedRoot, 'engine-sessions', 'repair-fixture') };
+  };
+  adapter.runPowerShell = async () => {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    return { exitCode: 0, stdout: ['static verification passed'], stderr: [] };
+  };
+
+  const started = Date.now();
+  const accepted = await adapter.startRepair(reportId);
+  const acceptanceMs = Date.now() - started;
+  assert.equal(accepted.accepted, true);
+  assert.equal(accepted.reportId, reportId);
+  assert.ok(acceptanceMs < 60, `repair acceptance blocked for ${acceptanceMs}ms`);
+  assert.equal(adapter.getOperationStatus(accepted.operationId).state, 'running');
+
+  for (let attempt = 0; attempt < 30 && adapter.getOperationStatus(accepted.operationId).state === 'running'; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  assert.equal(adapter.getOperationStatus(accepted.operationId).state, 'completed');
+  assert.equal(events.at(-1).kind, 'ResultReady');
+});
+
+test('repair timeout and cancellation remain distinct terminal outcomes', async () => {
+  const timeoutRoot = path.join(testRoot, 'repair-outcomes');
+  const timeoutEvents = [];
+  const adapter = new EngineAdapter({
+    dataRoot: timeoutRoot,
+    engineRoot: path.join(projectRoot, 'engine', 'integrated-4.0.0'),
+    realRepairEnabled: true,
+    operationTimeoutMs: 20,
+    onEvent: (event) => timeoutEvents.push(event),
+    onLog: () => {},
+    registerChild: () => {},
+    unregisterChild: () => {}
+  });
+  const timeoutReportId = 'report-repair-timeout-001';
+  adapter.currentReport = makeCurrentReport({
+    id: timeoutReportId,
+    expiresAt: new Date(Date.now() + 60000).toISOString(),
+    issues: [makeIssue('plugin-cache-drift', ['Synthetic drift'])]
+  });
+  adapter.prepareSession = async () => ({ sessionRoot: timeoutRoot });
+  adapter.runPowerShell = async () => {
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    return { exitCode: 0, stdout: ['static verification passed'], stderr: [] };
+  };
+  const timeoutAccepted = await adapter.startRepair(timeoutReportId);
+  for (let attempt = 0; attempt < 30 && adapter.getOperationStatus(timeoutAccepted.operationId).state === 'running'; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  assert.equal(adapter.getOperationStatus(timeoutAccepted.operationId).state, 'timed-out');
+  assert.equal(adapter.getOperationStatus(timeoutAccepted.operationId).reason, 'timeout');
+  assert.equal(timeoutEvents.at(-1).kind, 'Failed');
+  assert.equal(timeoutEvents.at(-1).details.reason, 'timeout');
+
+  const cancelEvents = [];
+  const cancelAdapter = new EngineAdapter({
+    dataRoot: path.join(timeoutRoot, 'cancel'),
+    engineRoot: path.join(projectRoot, 'engine', 'integrated-4.0.0'),
+    realRepairEnabled: true,
+    operationTimeoutMs: 1000,
+    onEvent: (event) => cancelEvents.push(event),
+    onLog: () => {},
+    registerChild: () => {},
+    unregisterChild: () => {}
+  });
+  const cancelReportId = 'report-repair-cancel-01';
+  cancelAdapter.currentReport = makeCurrentReport({
+    id: cancelReportId,
+    expiresAt: new Date(Date.now() + 60000).toISOString(),
+    issues: [makeIssue('plugin-cache-drift', ['Synthetic drift'])]
+  });
+  cancelAdapter.prepareSession = async () => ({ sessionRoot: timeoutRoot });
+  cancelAdapter.runPowerShell = async (_sessionRoot, _mode, _operationId, signal) => new Promise((_resolve, reject) => {
+    if (signal.aborted) return reject(signal.reason);
+    signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+  });
+  const cancelAccepted = await cancelAdapter.startRepair(cancelReportId);
+  assert.equal(cancelAdapter.cancel(), true);
+  for (let attempt = 0; attempt < 30 && cancelAdapter.getOperationStatus(cancelAccepted.operationId).state === 'running'; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  assert.equal(cancelAdapter.getOperationStatus(cancelAccepted.operationId).state, 'cancelled');
+  assert.equal(cancelEvents.at(-1).kind, 'Cancelled');
+  assert.equal(cancelEvents.at(-1).details.reason, 'cancelled');
+});
+
 test('only a bounded validated frozen DiagnoseOnly report is accepted', async () => {
   const session = path.join(testRoot, 'core-report');
   const logs = path.join(session, 'Logs');

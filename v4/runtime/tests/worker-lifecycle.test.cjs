@@ -37,6 +37,15 @@ test('worker emits projected fixture events and cleans only its owned helper', a
   await manager.request('test.emit-fixture', { operationId: 'fixture-operation-0001' });
   assert.equal(events.at(-1).kind, 'ResultReady');
   assert.equal(events.at(-1).displayedProgress, 100);
+  const status = await manager.request('operation.status', 'fixture-operation-0001');
+  assert.equal(status.state, 'completed');
+  assert.equal(status.finalVerificationPassed, true);
+  await assert.rejects(() => manager.request('support.bundle', { confirmed: false }), /explicit confirmation/);
+  const bundle = await manager.request('support.bundle', { confirmed: true });
+  assert.equal(bundle.redacted, true);
+  assert.ok(bundle.fileName.startsWith('support-'));
+  assert.ok(bundle.path.startsWith(path.join(testRoot, 'support-bundles')));
+  assert.ok((await fs.stat(bundle.path)).isFile());
   const helper = await manager.request('test.spawn-helper');
   assert.equal(processExists(helper.pid), true);
   await manager.shutdown({ timeoutMs: 5000 });

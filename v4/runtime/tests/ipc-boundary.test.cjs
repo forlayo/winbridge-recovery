@@ -14,7 +14,7 @@ test('preload exposes exactly the approved Runtime API names', () => {
   const names = [...apiBlock[1].matchAll(/^\s{2}([a-zA-Z][a-zA-Z0-9]*):/gm)].map((match) => match[1]);
   assert.deepEqual(names, [
     'getAppInfo', 'getSettings', 'saveSettings', 'getSystemProfile', 'refreshSystemProfile',
-    'runDiagnosis', 'getDiagnosisReport', 'startRepair', 'cancelOperation', 'openLogs',
+    'runDiagnosis', 'getDiagnosisReport', 'startRepair', 'cancelOperation', 'exportSupportBundle', 'openLogs',
     'openGPT', 'getPluginAssets', 'getSocialFeed', 'translateSocialPost', 'openSocialPost',
     'onEngineEvent', 'onLogBatch'
   ]);
