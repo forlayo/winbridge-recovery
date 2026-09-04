@@ -1789,6 +1789,42 @@ function Update-NativeHost {
   Write-JsonFile $Context.NativeV2Path $v2
 }
 
+function Invoke-CliCommandCapture {
+  param(
+    [Parameter(Mandatory = $true)][string]$Cli,
+    [Parameter(Mandatory = $true)][string[]]$Arguments
+  )
+  $previousPreference = $ErrorActionPreference
+  try {
+    # Native stderr is evidence, not a PowerShell terminating error. Capture it
+    # so callers can distinguish a remote catalog outage from a local failure.
+    $ErrorActionPreference = 'Continue'
+    $output = @(& $Cli @Arguments 2>&1 | ForEach-Object { [string]$_ })
+    $exitCode = $LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $previousPreference
+  }
+  return [pscustomobject]@{
+    ExitCode = $exitCode
+    Output = @($output)
+    Text = ($output -join "`n")
+  }
+}
+
+function Test-RemoteMarketplaceCatalogFailure {
+  param([AllowEmptyString()][string]$Text)
+  if ([string]::IsNullOrWhiteSpace($Text)) { return $false }
+  $mentionsRemoteCatalog =
+    $Text -match '(?i)failed to list remote marketplace plugins' -or
+    $Text -match '(?i)remote plugin catalog' -or
+    $Text -match '(?i)/backend-api/ps/plugins/list'
+  $mentionsTransportOrParsing =
+    $Text -match '(?i)failed to parse.*catalog response' -or
+    $Text -match '(?i)EOF while parsing' -or
+    $Text -match '(?i)(network|connection|request|timeout|timed out|http|tls|dns)'
+  return $mentionsRemoteCatalog -and $mentionsTransportOrParsing
+}
+
 function Invoke-CliValidation {
   param([Parameter(Mandatory = $true)][object]$Context)
   $cli = Join-Path $Context.OfficialCliRoot 'codex.exe'
@@ -1796,20 +1832,25 @@ function Invoke-CliValidation {
   $oldHome = $env:CODEX_HOME
   try {
     $env:CODEX_HOME = $Context.CodexHome
-    $pluginOutput = @(& $cli plugin list 2>&1)
-    $pluginExit = $LASTEXITCODE
-    if ($pluginExit -ne 0) { throw "codex plugin list failed: $($pluginOutput -join ' ')" }
-    foreach ($name in @('browser', 'chrome', 'computer-use')) {
-      $version = [string]$Context.PluginVersions[$name]
-      $pattern = [regex]::Escape($name + '@openai-bundled') + '.*installed, enabled\s+' + [regex]::Escape($version)
-      if (($pluginOutput -join "`n") -notmatch $pattern) {
-        throw "CLI registration validation failed for $name@$version"
+    $pluginResult = Invoke-CliCommandCapture $cli @('plugin', 'list')
+    if ($pluginResult.ExitCode -ne 0) {
+      if (Test-RemoteMarketplaceCatalogFailure $pluginResult.Text) {
+        Write-Log 'The official remote plugin catalog is temporarily unavailable; continuing with authoritative local static validation.' 'WARN'
+      } else {
+        throw "codex plugin list failed: $($pluginResult.Output -join ' ')"
+      }
+    } else {
+      foreach ($name in @('browser', 'chrome', 'computer-use')) {
+        $version = [string]$Context.PluginVersions[$name]
+        $pattern = [regex]::Escape($name + '@openai-bundled') + '.*installed, enabled\s+' + [regex]::Escape($version)
+        if ($pluginResult.Text -notmatch $pattern) {
+          throw "CLI registration validation failed for $name@$version"
+        }
       }
     }
-    $mcpOutput = @(& $cli mcp list 2>&1)
-    $mcpExit = $LASTEXITCODE
-    if ($mcpExit -ne 0) { throw "codex mcp list failed: $($mcpOutput -join ' ')" }
-    if (($mcpOutput -join "`n") -notmatch '(?m)^node_repl\s+') {
+    $mcpResult = Invoke-CliCommandCapture $cli @('mcp', 'list')
+    if ($mcpResult.ExitCode -ne 0) { throw "codex mcp list failed: $($mcpResult.Output -join ' ')" }
+    if ($mcpResult.Text -notmatch '(?m)^node_repl\s+') {
       throw 'node_repl MCP is not registered after config update.'
     }
   } finally {

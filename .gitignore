@@ -11,6 +11,8 @@ R/
 State/
 Config/
 Data/
+!v4/design-lab/src/data/
+!v4/design-lab/src/data/concepts.js
 Rollback/
 Screenshots/
 

@@ -1,0 +1,4 @@
+# Frozen PowerShell payloads are hash-addressed byte-for-byte by SNAPSHOT.json.
+# Keep Git from changing their line endings on Windows checkouts.
+/v4/runtime/engine/integrated-4.0.0/*.ps1 binary
+/v4/runtime/engine/frozen-3.1.1/*.ps1 binary
