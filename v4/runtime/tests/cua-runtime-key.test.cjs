@@ -46,7 +46,7 @@ function createPackage(name) {
   fs.rmSync(caseRoot, { recursive: true, force: true });
   const resources = path.join(caseRoot, 'package', 'app', 'resources');
   const marketplace = path.join(resources, 'plugins', 'openai-bundled');
-  write(path.join(marketplace, '.agents', 'plugins', 'marketplace.json'), JSON.stringify({ name: 'openai-bundled', plugins: [] }));
+  write(path.join(marketplace, '.agents', 'plugins', 'marketplace.json'), JSON.stringify({ name: 'openai-bundled', plugins: ['browser', 'chrome', 'computer-use'].map((id) => ({ name: id, source: { source: 'local', path: `./plugins/${id}` } })) }));
   for (const id of ['browser', 'chrome', 'computer-use']) write(path.join(marketplace, 'plugins', id, '.codex-plugin', 'plugin.json'), JSON.stringify({ name: id, version: '26.1007.71326' }));
   write(path.join(marketplace, 'plugins', 'browser', 'scripts', 'browser-client.mjs'), '// browser');
   write(path.join(marketplace, 'plugins', 'chrome', 'scripts', 'browser-client.mjs'), '// chrome');
