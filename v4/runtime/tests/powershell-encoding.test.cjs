@@ -74,6 +74,12 @@ function expectedNonAsciiLiterals(file) {
     .filter((value) => /[^\x00-\x7F]/.test(value));
 }
 
+test('ASAR reader refuses entry paths that could leave the archive', () => {
+  for (const segments of [['..', 'secret'], ['engine', ''], ['engine', 'a\\b'], ['engine', 'a/b'], []]) {
+    assert.throws(() => readAsarFile(path.join(artifactsRoot, 'missing.asar'), segments), /entry path is invalid/);
+  }
+});
+
 test('PowerShell encoding inspector accepts ASCII or BOM-marked UTF-8 and rejects ambiguous bytes', () => {
   const chinese = Buffer.from("'火绒'\n", 'utf8');
   assert.equal(inspectPowerShellEncoding(Buffer.from("Write-Output 'ok'\n")).encoding, 'ascii');
@@ -128,8 +134,12 @@ test('the BOM-less Access Guard reproduces the reported Windows PowerShell 5.1 p
   assert.ok(report.results[0].errors.length > 0, `expected parse errors on ANSI code page ${report.ansiCodePage}`);
 });
 
+// @electron/asar is the archiver @electron/packager uses (installed through it)
+// and is ESM-only, so it is loaded with a dynamic import.
+const loadAsar = () => import('@electron/asar');
+
 test('engine scripts survive ASAR packaging and extraction byte-for-byte', async () => {
-  const asar = require('@electron/asar');
+  const asar = await loadAsar();
   const appRoot = path.join(artifactsRoot, 'app');
   const archive = path.join(artifactsRoot, 'app.asar');
   fs.rmSync(artifactsRoot, { recursive: true, force: true });
@@ -147,7 +157,7 @@ test('engine scripts survive ASAR packaging and extraction byte-for-byte', async
 });
 
 test('packaged engine verification rejects a BOM-less Access Guard', async () => {
-  const asar = require('@electron/asar');
+  const asar = await loadAsar();
   const appRoot = path.join(artifactsRoot, 'regressed-app');
   const archive = path.join(artifactsRoot, 'regressed.asar');
   fs.rmSync(appRoot, { recursive: true, force: true });
@@ -163,7 +173,17 @@ test('packaged engine verification rejects a BOM-less Access Guard', async () =>
   assert.ok(result.problems.some((problem) => problem.startsWith(`${accessGuardName}: packaged SHA-256`)));
 });
 
-test('the built Windows package carries a verified, PowerShell 5.1 safe engine snapshot', { skip: !fs.existsSync(fixedPaths().packagedAsar) && 'No packaged app.asar; run npm run pack:win to validate the real package' }, () => {
+// A package built from an older checkout is stale rather than broken;
+// Pack-Windows.ps1 runs the same verifier on every fresh build.
+function packagedSkipReason() {
+  const { packagedAsar, sourceEngineRoot } = fixedPaths();
+  if (!fs.existsSync(packagedAsar)) return 'No packaged app.asar; run npm run pack:win to validate the real package';
+  const packagedManifest = readAsarFile(packagedAsar, ['engine', 'integrated-4.0.0', 'SNAPSHOT.json']);
+  if (!packagedManifest.equals(fs.readFileSync(path.join(sourceEngineRoot, 'SNAPSHOT.json')))) return 'Packaged app.asar was built from a different snapshot; run npm run pack:win to refresh it';
+  return false;
+}
+
+test('the built Windows package carries a verified, PowerShell 5.1 safe engine snapshot', { skip: packagedSkipReason() }, () => {
   const { packagedAsar, sourceEngineRoot } = fixedPaths();
   const result = verifyPackagedEngine(packagedAsar, sourceEngineRoot);
   assert.deepEqual(result.problems, []);

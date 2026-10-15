@@ -64,15 +64,20 @@ function findAsarEntry(header, segments) {
 
 /** Reads one file's exact bytes out of an ASAR archive, as Electron serves them. */
 function readAsarFile(asarPath, relativeSegments) {
+  if (!relativeSegments.length || relativeSegments.some((segment) => !segment || segment === '.' || segment === '..' || /[\\/]/.test(segment))) {
+    throw new Error(`ASAR entry path is invalid: ${relativeSegments.join('/')}`);
+  }
   const fd = fs.openSync(asarPath, 'r');
   try {
     const { header, dataOffset } = readAsarHeader(fd);
     const entry = findAsarEntry(header, relativeSegments);
-    if (!entry || entry.files || !Number.isSafeInteger(entry.size)) throw new Error(`ASAR entry is missing: ${relativeSegments.join('/')}`);
+    if (!entry || entry.files || !Number.isSafeInteger(entry.size) || entry.size < 0) throw new Error(`ASAR entry is missing: ${relativeSegments.join('/')}`);
     if (entry.size > MAX_ENGINE_FILE_BYTES) throw new Error(`ASAR entry exceeds its size boundary: ${relativeSegments.join('/')}`);
     if (entry.unpacked) return fs.readFileSync(path.join(`${asarPath}.unpacked`, ...relativeSegments));
+    const entryOffset = Number(entry.offset);
+    if (!Number.isSafeInteger(entryOffset) || entryOffset < 0) throw new Error(`ASAR entry offset is invalid: ${relativeSegments.join('/')}`);
     const content = Buffer.alloc(entry.size);
-    const offset = dataOffset + Number(entry.offset);
+    const offset = dataOffset + entryOffset;
     if (fs.readSync(fd, content, 0, entry.size, offset) !== entry.size) throw new Error(`ASAR entry is truncated: ${relativeSegments.join('/')}`);
     return content;
   } finally {
